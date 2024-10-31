@@ -11,7 +11,7 @@ class ReservasScreen extends StatefulWidget {
 class _ReservasScreenState extends State<ReservasScreen> {
   List<Map<String, dynamic>> reservas = [
     {
-      'habitacion': 'Habitación 101',
+      'habitacion': 'Habitación: 101',
       'nombre': 'Juan Pérez',
       'cantidad': 2,
       'telefono': '123456789',
@@ -22,7 +22,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
       'observaciones': 'Preferencia por vista al jardín.'
     },
     {
-      'habitacion': 'Habitación 102',
+      'habitacion': 'Habitación: 102',
       'nombre': 'Ana Gómez',
       'cantidad': 1,
       'telefono': '987654321',
@@ -148,7 +148,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
               children: [
                 TextField(
                   controller: habitacionController,
-                  decoration: const InputDecoration(labelText: 'Habitación'),
+                  decoration: const InputDecoration(labelText: 'Habitación:'),
                 ),
                 TextField(
                   controller: nombreController,
@@ -226,7 +226,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
   }
 
   void _showAddReservaDialog() {
-    TextEditingController habitacionController = TextEditingController(text: "Habitación ");
+    TextEditingController habitacionController = TextEditingController(text: "Habitación: ");
     TextEditingController nombreController = TextEditingController();
     TextEditingController telefonoController = TextEditingController();
     TextEditingController cantidadController = TextEditingController();
@@ -261,10 +261,10 @@ class _ReservasScreenState extends State<ReservasScreen> {
               children: [
                 TextField(
                   controller: habitacionController,
-                  decoration: const InputDecoration(labelText: 'Habitación'),
+                  decoration: const InputDecoration(labelText: 'Habitación:'),
                   onChanged: (value) {
-                    if (!value.startsWith("Habitación ")) {
-                      habitacionController.text = "Habitación ";
+                    if (!value.startsWith("Habitación: ")) {
+                      habitacionController.text = "Habitación: ";
                       habitacionController.selection = TextSelection.fromPosition(
                         TextPosition(offset: habitacionController.text.length),
                       );
