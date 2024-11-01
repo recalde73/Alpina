@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
 class ReservasScreen extends StatefulWidget {
-  const ReservasScreen({Key? key}) : super(key: key);
+  const ReservasScreen({super.key});
 
   @override
   _ReservasScreenState createState() => _ReservasScreenState();
@@ -36,64 +36,89 @@ class _ReservasScreenState extends State<ReservasScreen> {
 
   @override
   Widget build(BuildContext context) {
+    Map<String, List<Map<String, dynamic>>> reservasPorFecha = {};
+    for (var reserva in reservas) {
+      String fecha = reserva['checkIn'];
+      if (reservasPorFecha[fecha] == null) {
+        reservasPorFecha[fecha] = [];
+      }
+      reservasPorFecha[fecha]!.add(reserva);
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Reservas Alpina'),
       ),
-      body: ListView.builder(
-        itemCount: reservas.length,
-        itemBuilder: (context, index) {
-          final reserva = reservas[index];
-          return Dismissible(
-            key: UniqueKey(),
-            direction: DismissDirection.endToStart,
-            confirmDismiss: (direction) async {
-              return await showDialog(
-                context: context,
-                builder: (BuildContext context) {
-                  return AlertDialog(
-                    title: const Text("Confirmar eliminación"),
-                    content: const Text("¿Estás seguro de que deseas eliminar esta reserva?"),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(false),
-                        child: const Text("Cancelar"),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(true),
-                        child: const Text("Eliminar"),
-                      ),
-                    ],
-                  );
-                },
-              );
-            },
-            onDismissed: (direction) {
-              setState(() {
-                reservas.removeAt(index);
-              });
-            },
-            background: Container(color: Colors.red),
-            child: _buildReservaCard(
-              context,
-              index,
-              reserva['habitacion'],
-              reserva['nombre'],
-              reserva['cantidad'],
-              reserva['telefono'],
-              reserva['adultos'],
-              reserva['ninos'],
-              reserva['checkIn'],
-              reserva['checkOut'],
-              reserva['observaciones'],
-            ),
+      body: ListView(
+        children: reservasPorFecha.entries.map((entry) {
+          String fecha = entry.key;
+          List<Map<String, dynamic>> reservasDelDia = entry.value;
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 8.0),
+                child: Text(
+                  DateFormat('dd MMMM yyyy').format(DateFormat('dd/MM/yyyy').parse(fecha)),
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
+                ),
+              ),
+              ...reservasDelDia.map((reserva) {
+                int index = reservas.indexOf(reserva);
+                return Dismissible(
+                  key: UniqueKey(),
+                  direction: DismissDirection.endToStart,
+                  confirmDismiss: (direction) async {
+                    return await showDialog(
+                      context: context,
+                      builder: (BuildContext context) {
+                        return AlertDialog(
+                          title: const Text("Confirmar eliminación"),
+                          content: const Text("¿Estás seguro de que deseas eliminar esta reserva?"),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(false),
+                              child: const Text("Cancelar"),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.of(context).pop(true),
+                              child: const Text("Eliminar"),
+                            ),
+                          ],
+                        );
+                      },
+                    );
+                  },
+                  onDismissed: (direction) {
+                    setState(() {
+                      reservas.removeAt(index);
+                    });
+                  },
+                  background: Container(color: Colors.red),
+                  child: _buildReservaCard(
+                    context,
+                    index,
+                    reserva['habitacion'],
+                    reserva['nombre'],
+                    reserva['cantidad'],
+                    reserva['telefono'],
+                    reserva['adultos'],
+                    reserva['ninos'],
+                    reserva['checkIn'],
+                    reserva['checkOut'],
+                    reserva['observaciones'],
+                  ),
+                );
+              }).toList(),
+            ],
           );
-        },
+        }).toList(),
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddReservaDialog,
-        child: const Icon(Icons.add),
         backgroundColor: Colors.green,
+        child: const Icon(Icons.add),
       ),
     );
   }
@@ -123,18 +148,16 @@ class _ReservasScreenState extends State<ReservasScreen> {
     TextEditingController checkOutController = TextEditingController(text: checkOut);
     TextEditingController observacionesController = TextEditingController(text: observaciones);
 
-    Future<void> _selectDate(BuildContext context, TextEditingController controller) async {
+    Future<void> selectDate(BuildContext context, TextEditingController controller) async {
       DateTime? picked = await showDatePicker(
         context: context,
         initialDate: DateTime.now(),
         firstDate: DateTime(2000),
         lastDate: DateTime(2101),
       );
-      if (picked != null) {
-        setState(() {
-          controller.text = DateFormat('dd/MM/yyyy').format(picked);
-        });
-      }
+      setState(() {
+        controller.text = DateFormat('dd/MM/yyyy').format(picked!);
+      });
     }
 
     showDialog(
@@ -178,13 +201,13 @@ class _ReservasScreenState extends State<ReservasScreen> {
                   controller: checkInController,
                   readOnly: true,
                   decoration: const InputDecoration(labelText: 'Check-in'),
-                  onTap: () => _selectDate(context, checkInController),
+                  onTap: () => selectDate(context, checkInController),
                 ),
                 TextField(
                   controller: checkOutController,
                   readOnly: true,
                   decoration: const InputDecoration(labelText: 'Check-out'),
-                  onTap: () => _selectDate(context, checkOutController),
+                  onTap: () => selectDate(context, checkOutController),
                 ),
                 TextField(
                   controller: observacionesController,
@@ -236,18 +259,16 @@ class _ReservasScreenState extends State<ReservasScreen> {
     TextEditingController checkOutController = TextEditingController();
     TextEditingController observacionesController = TextEditingController();
 
-    Future<void> _selectDate(BuildContext context, TextEditingController controller) async {
+    Future<void> selectDate(BuildContext context, TextEditingController controller) async {
       DateTime? picked = await showDatePicker(
         context: context,
         initialDate: DateTime.now(),
         firstDate: DateTime(2000),
         lastDate: DateTime(2101),
       );
-      if (picked != null) {
-        setState(() {
-          controller.text = DateFormat('dd/MM/yyyy').format(picked);
-        });
-      }
+      setState(() {
+        controller.text = DateFormat('dd/MM/yyyy').format(picked!);
+      });
     }
 
     showDialog(
@@ -299,13 +320,13 @@ class _ReservasScreenState extends State<ReservasScreen> {
                   controller: checkInController,
                   readOnly: true,
                   decoration: const InputDecoration(labelText: 'Check-in'),
-                  onTap: () => _selectDate(context, checkInController),
+                  onTap: () => selectDate(context, checkInController),
                 ),
                 TextField(
                   controller: checkOutController,
                   readOnly: true,
                   decoration: const InputDecoration(labelText: 'Check-out'),
-                  onTap: () => _selectDate(context, checkOutController),
+                  onTap: () => selectDate(context, checkOutController),
                 ),
                 TextField(
                   controller: observacionesController,
@@ -346,3 +367,4 @@ class _ReservasScreenState extends State<ReservasScreen> {
     );
   }
 }
+
