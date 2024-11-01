@@ -1,5 +1,28 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'reservas_filter.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+
+void main() {
+  runApp(MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      localizationsDelegates: [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: [
+        const Locale('es', 'ES'), // Configuración en español
+      ],
+      home: ReservasScreen(),
+    );
+  }
+}
 
 class ReservasScreen extends StatefulWidget {
   const ReservasScreen({super.key});
@@ -34,10 +57,32 @@ class _ReservasScreenState extends State<ReservasScreen> {
     },
   ];
 
+  List<Map<String, dynamic>> filteredReservas = [];
+  TextEditingController filterController = TextEditingController();
+  final _formKey = GlobalKey<FormState>();
+
+  @override
+  void initState() {
+    super.initState();
+    filteredReservas = reservas; // Mostrar todas las reservas inicialmente
+    filterController.addListener(_filterReservas);
+  }
+
+  void _filterReservas() {
+    setState(() {
+      String query = filterController.text.toLowerCase();
+      filteredReservas = reservas.where((reserva) {
+        final nombre = reserva['nombre'].toLowerCase();
+        final habitacion = reserva['habitacion'].toLowerCase();
+        return nombre.contains(query) || habitacion.contains(query);
+      }).toList();
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     Map<String, List<Map<String, dynamic>>> reservasPorFecha = {};
-    for (var reserva in reservas) {
+    for (var reserva in filteredReservas) {
       String fecha = reserva['checkIn'];
       if (reservasPorFecha[fecha] == null) {
         reservasPorFecha[fecha] = [];
@@ -49,71 +94,82 @@ class _ReservasScreenState extends State<ReservasScreen> {
       appBar: AppBar(
         title: const Text('Reservas Alpina'),
       ),
-      body: ListView(
-        children: reservasPorFecha.entries.map((entry) {
-          String fecha = entry.key;
-          List<Map<String, dynamic>> reservasDelDia = entry.value;
+      body: Column(
+        children: [
+          ReservasFilter(
+            controller: filterController,
+            onFilterChanged: (query) => _filterReservas(),
+          ),
+          Expanded(
+            child: ListView(
+              children: reservasPorFecha.entries.map((entry) {
+                String fecha = entry.key;
+                List<Map<String, dynamic>> reservasDelDia = entry.value;
 
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8.0),
-                child: Text(
-                  DateFormat('dd MMMM yyyy').format(DateFormat('dd/MM/yyyy').parse(fecha)),
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
-                ),
-              ),
-              ...reservasDelDia.map((reserva) {
-                int index = reservas.indexOf(reserva);
-                return Dismissible(
-                  key: UniqueKey(),
-                  direction: DismissDirection.endToStart,
-                  confirmDismiss: (direction) async {
-                    return await showDialog(
-                      context: context,
-                      builder: (BuildContext context) {
-                        return AlertDialog(
-                          title: const Text("Confirmar eliminación"),
-                          content: const Text("¿Estás seguro de que deseas eliminar esta reserva?"),
-                          actions: [
-                            TextButton(
-                              onPressed: () => Navigator.of(context).pop(false),
-                              child: const Text("Cancelar"),
-                            ),
-                            TextButton(
-                              onPressed: () => Navigator.of(context).pop(true),
-                              child: const Text("Eliminar"),
-                            ),
-                          ],
-                        );
-                      },
-                    );
-                  },
-                  onDismissed: (direction) {
-                    setState(() {
-                      reservas.removeAt(index);
-                    });
-                  },
-                  background: Container(color: Colors.red),
-                  child: _buildReservaCard(
-                    context,
-                    index,
-                    reserva['habitacion'],
-                    reserva['nombre'],
-                    reserva['cantidad'],
-                    reserva['telefono'],
-                    reserva['adultos'],
-                    reserva['ninos'],
-                    reserva['checkIn'],
-                    reserva['checkOut'],
-                    reserva['observaciones'],
-                  ),
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: Text(
+                        DateFormat('dd MMMM yyyy', 'es').format(DateFormat('dd/MM/yyyy').parse(fecha)),
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
+                      ),
+                    ),
+                    ...reservasDelDia.map((reserva) {
+                      int index = reservas.indexOf(reserva);
+                      return Dismissible(
+                        key: UniqueKey(),
+                        direction: DismissDirection.endToStart,
+                        confirmDismiss: (direction) async {
+                          return await showDialog(
+                            context: context,
+                            builder: (BuildContext context) {
+                              return AlertDialog(
+                                title: const Text("Confirmar eliminación"),
+                                content: const Text("¿Estás seguro de que deseas eliminar esta reserva?"),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.of(context).pop(false),
+                                    child: const Text("Cancelar"),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => Navigator.of(context).pop(true),
+                                    child: const Text("Eliminar"),
+                                  ),
+                                ],
+                              );
+                            },
+                          );
+                        },
+                        onDismissed: (direction) {
+                          setState(() {
+                            reservas.removeAt(index);
+                            _filterReservas(); // Actualizar el filtro
+                          });
+                        },
+                        background: Container(color: Colors.red),
+                        child: _buildReservaCard(
+                          context,
+                          index,
+                          reserva['habitacion'],
+                          reserva['nombre'],
+                          reserva['cantidad'],
+                          reserva['telefono'],
+                          reserva['adultos'],
+                          reserva['ninos'],
+                          reserva['checkIn'],
+                          reserva['checkOut'],
+                          reserva['observaciones'],
+                        ),
+                      );
+                    }).toList(),
+                  ],
                 );
               }).toList(),
-            ],
-          );
-        }).toList(),
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: _showAddReservaDialog,
@@ -154,10 +210,13 @@ class _ReservasScreenState extends State<ReservasScreen> {
         initialDate: DateTime.now(),
         firstDate: DateTime(2000),
         lastDate: DateTime(2101),
+        locale: const Locale('es', 'ES'), // Calendario en español
       );
-      setState(() {
-        controller.text = DateFormat('dd/MM/yyyy').format(picked!);
-      });
+      if (picked != null) {
+        setState(() {
+          controller.text = DateFormat('dd/MM/yyyy', 'es').format(picked);
+        });
+      }
     }
 
     showDialog(
@@ -166,56 +225,111 @@ class _ReservasScreenState extends State<ReservasScreen> {
         return AlertDialog(
           title: const Text('Detalles de la Reserva'),
           content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: habitacionController,
-                  decoration: const InputDecoration(labelText: 'Habitación:'),
-                ),
-                TextField(
-                  controller: nombreController,
-                  decoration: const InputDecoration(labelText: 'Nombre del cliente'),
-                ),
-                TextField(
-                  controller: telefonoController,
-                  decoration: const InputDecoration(labelText: 'Número de Teléfono'),
-                  keyboardType: TextInputType.phone,
-                ),
-                TextField(
-                  controller: cantidadController,
-                  decoration: const InputDecoration(labelText: 'Cantidad de huéspedes'),
-                  keyboardType: TextInputType.number,
-                ),
-                TextField(
-                  controller: adultosController,
-                  decoration: const InputDecoration(labelText: 'Cantidad de Adultos'),
-                  keyboardType: TextInputType.number,
-                ),
-                TextField(
-                  controller: ninosController,
-                  decoration: const InputDecoration(labelText: 'Cantidad de Niños'),
-                  keyboardType: TextInputType.number,
-                ),
-                TextField(
-                  controller: checkInController,
-                  readOnly: true,
-                  decoration: const InputDecoration(labelText: 'Check-in'),
-                  onTap: () => selectDate(context, checkInController),
-                ),
-                TextField(
-                  controller: checkOutController,
-                  readOnly: true,
-                  decoration: const InputDecoration(labelText: 'Check-out'),
-                  onTap: () => selectDate(context, checkOutController),
-                ),
-                TextField(
-                  controller: observacionesController,
-                  decoration: const InputDecoration(labelText: 'Observaciones'),
-                  keyboardType: TextInputType.multiline,
-                  maxLines: null,
-                ),
-              ],
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextFormField(
+                    controller: habitacionController,
+                    decoration: const InputDecoration(labelText: 'Habitación:'),
+                    validator: (value) {
+                      if (value == null || value.isEmpty || !value.startsWith("Habitación: ")) {
+                        return 'Por favor, ingrese el número de habitación.';
+                      }
+                      return null;
+                    },
+                  ),
+                  TextFormField(
+                    controller: nombreController,
+                    decoration: const InputDecoration(labelText: 'Nombre del cliente'),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Por favor, ingrese el nombre del cliente.';
+                      }
+                      return null;
+                    },
+                  ),
+                  TextFormField(
+                    controller: telefonoController,
+                    decoration: const InputDecoration(labelText: 'Número de Teléfono'),
+                    keyboardType: TextInputType.phone,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Por favor, ingrese el número de teléfono.';
+                      } else if (!RegExp(r'^\d+$').hasMatch(value)) {
+                        return 'El número de teléfono debe contener solo números.';
+                      }
+                      return null;
+                    },
+                  ),
+                  TextFormField(
+                    controller: cantidadController,
+                    decoration: const InputDecoration(labelText: 'Cantidad de huéspedes'),
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      if (value == null || value.isEmpty || int.tryParse(value) == null || int.parse(value) <= 0) {
+                        return 'Ingrese una cantidad válida de huéspedes.';
+                      }
+                      return null;
+                    },
+                  ),
+                  TextFormField(
+                    controller: adultosController,
+                    decoration: const InputDecoration(labelText: 'Cantidad de Adultos'),
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      if (value == null || value.isEmpty || int.tryParse(value) == null || int.parse(value) < 0) {
+                        return 'Ingrese una cantidad válida de adultos.';
+                      }
+                      return null;
+                    },
+                  ),
+                  TextFormField(
+                    controller: ninosController,
+                    decoration: const InputDecoration(labelText: 'Cantidad de Niños'),
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      if (value == null || value.isEmpty || int.tryParse(value) == null || int.parse(value) < 0) {
+                        return 'Ingrese una cantidad válida de niños.';
+                      }
+                      return null;
+                    },
+                  ),
+                  TextFormField(
+                    controller: checkInController,
+                    readOnly: true,
+                    decoration: const InputDecoration(labelText: 'Check-in'),
+                    onTap: () => selectDate(context, checkInController),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Por favor, seleccione la fecha de check-in.';
+                      }
+                      return null;
+                    },
+                  ),
+                  TextFormField(
+                    controller: checkOutController,
+                    readOnly: true,
+                    decoration: const InputDecoration(labelText: 'Check-out'),
+                    onTap: () => selectDate(context, checkOutController),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Por favor, seleccione la fecha de check-out.';
+                      } else if (checkInController.text.isNotEmpty && DateFormat('dd/MM/yyyy').parse(value!).isBefore(DateFormat('dd/MM/yyyy').parse(checkInController.text))) {
+                        return 'La fecha de check-out debe ser posterior a la de check-in.';
+                      }
+                      return null;
+                    },
+                  ),
+                  TextFormField(
+                    controller: observacionesController,
+                    decoration: const InputDecoration(labelText: 'Observaciones'),
+                    keyboardType: TextInputType.multiline,
+                    maxLines: null,
+                  ),
+                ],
+              ),
             ),
           ),
           actions: [
@@ -225,20 +339,23 @@ class _ReservasScreenState extends State<ReservasScreen> {
             ),
             TextButton(
               onPressed: () {
-                setState(() {
-                  reservas[index] = {
-                    'habitacion': habitacionController.text,
-                    'nombre': nombreController.text,
-                    'cantidad': int.tryParse(cantidadController.text) ?? 1,
-                    'telefono': telefonoController.text,
-                    'adultos': int.tryParse(adultosController.text) ?? 0,
-                    'ninos': int.tryParse(ninosController.text) ?? 0,
-                    'checkIn': checkInController.text,
-                    'checkOut': checkOutController.text,
-                    'observaciones': observacionesController.text,
-                  };
-                });
-                Navigator.pop(context);
+                if (_formKey.currentState!.validate()) {
+                  setState(() {
+                    reservas[index] = {
+                      'habitacion': habitacionController.text,
+                      'nombre': nombreController.text,
+                      'cantidad': int.tryParse(cantidadController.text) ?? 1,
+                      'telefono': telefonoController.text,
+                      'adultos': int.tryParse(adultosController.text) ?? 0,
+                      'ninos': int.tryParse(ninosController.text) ?? 0,
+                      'checkIn': checkInController.text,
+                      'checkOut': checkOutController.text,
+                      'observaciones': observacionesController.text,
+                    };
+                    _filterReservas();
+                  });
+                  Navigator.pop(context);
+                }
               },
               child: const Text('Guardar'),
             ),
@@ -265,10 +382,13 @@ class _ReservasScreenState extends State<ReservasScreen> {
         initialDate: DateTime.now(),
         firstDate: DateTime(2000),
         lastDate: DateTime(2101),
+        locale: const Locale('es', 'ES'), // Calendario en español
       );
-      setState(() {
-        controller.text = DateFormat('dd/MM/yyyy').format(picked!);
-      });
+      if (picked != null) {
+        setState(() {
+          controller.text = DateFormat('dd/MM/yyyy', 'es').format(picked);
+        });
+      }
     }
 
     showDialog(
@@ -277,64 +397,111 @@ class _ReservasScreenState extends State<ReservasScreen> {
         return AlertDialog(
           title: const Text('Agregar Nueva Reserva'),
           content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: habitacionController,
-                  decoration: const InputDecoration(labelText: 'Habitación:'),
-                  onChanged: (value) {
-                    if (!value.startsWith("Habitación: ")) {
-                      habitacionController.text = "Habitación: ";
-                      habitacionController.selection = TextSelection.fromPosition(
-                        TextPosition(offset: habitacionController.text.length),
-                      );
-                    }
-                  },
-                ),
-                TextField(
-                  controller: nombreController,
-                  decoration: const InputDecoration(labelText: 'Nombre del cliente'),
-                ),
-                TextField(
-                  controller: telefonoController,
-                  decoration: const InputDecoration(labelText: 'Número de Teléfono'),
-                  keyboardType: TextInputType.phone,
-                ),
-                TextField(
-                  controller: cantidadController,
-                  decoration: const InputDecoration(labelText: 'Cantidad de huéspedes'),
-                  keyboardType: TextInputType.number,
-                ),
-                TextField(
-                  controller: adultosController,
-                  decoration: const InputDecoration(labelText: 'Cantidad de Adultos'),
-                  keyboardType: TextInputType.number,
-                ),
-                TextField(
-                  controller: ninosController,
-                  decoration: const InputDecoration(labelText: 'Cantidad de Niños'),
-                  keyboardType: TextInputType.number,
-                ),
-                TextField(
-                  controller: checkInController,
-                  readOnly: true,
-                  decoration: const InputDecoration(labelText: 'Check-in'),
-                  onTap: () => selectDate(context, checkInController),
-                ),
-                TextField(
-                  controller: checkOutController,
-                  readOnly: true,
-                  decoration: const InputDecoration(labelText: 'Check-out'),
-                  onTap: () => selectDate(context, checkOutController),
-                ),
-                TextField(
-                  controller: observacionesController,
-                  decoration: const InputDecoration(labelText: 'Observaciones'),
-                  keyboardType: TextInputType.multiline,
-                  maxLines: null,
-                ),
-              ],
+            child: Form(
+              key: _formKey,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextFormField(
+                    controller: habitacionController,
+                    decoration: const InputDecoration(labelText: 'Habitación:'),
+                    validator: (value) {
+                      if (value == null || value.isEmpty || !value.startsWith("Habitación: ")) {
+                        return 'Por favor, ingrese el número de habitación.';
+                      }
+                      return null;
+                    },
+                  ),
+                  TextFormField(
+                    controller: nombreController,
+                    decoration: const InputDecoration(labelText: 'Nombre del cliente'),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Por favor, ingrese el nombre del cliente.';
+                      }
+                      return null;
+                    },
+                  ),
+                  TextFormField(
+                    controller: telefonoController,
+                    decoration: const InputDecoration(labelText: 'Número de Teléfono'),
+                    keyboardType: TextInputType.phone,
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Por favor, ingrese el número de teléfono.';
+                      } else if (!RegExp(r'^\d+$').hasMatch(value)) {
+                        return 'El número de teléfono debe contener solo números.';
+                      }
+                      return null;
+                    },
+                  ),
+                  TextFormField(
+                    controller: cantidadController,
+                    decoration: const InputDecoration(labelText: 'Cantidad de huéspedes'),
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      if (value == null || value.isEmpty || int.tryParse(value) == null || int.parse(value) <= 0) {
+                        return 'Ingrese una cantidad válida de huéspedes.';
+                      }
+                      return null;
+                    },
+                  ),
+                  TextFormField(
+                    controller: adultosController,
+                    decoration: const InputDecoration(labelText: 'Cantidad de Adultos'),
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      if (value == null || value.isEmpty || int.tryParse(value) == null || int.parse(value) < 0) {
+                        return 'Ingrese una cantidad válida de adultos.';
+                      }
+                      return null;
+                    },
+                  ),
+                  TextFormField(
+                    controller: ninosController,
+                    decoration: const InputDecoration(labelText: 'Cantidad de Niños'),
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      if (value == null || value.isEmpty || int.tryParse(value) == null || int.parse(value) < 0) {
+                        return 'Ingrese una cantidad válida de niños.';
+                      }
+                      return null;
+                    },
+                  ),
+                  TextFormField(
+                    controller: checkInController,
+                    readOnly: true,
+                    decoration: const InputDecoration(labelText: 'Check-in'),
+                    onTap: () => selectDate(context, checkInController),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Por favor, seleccione la fecha de check-in.';
+                      }
+                      return null;
+                    },
+                  ),
+                  TextFormField(
+                    controller: checkOutController,
+                    readOnly: true,
+                    decoration: const InputDecoration(labelText: 'Check-out'),
+                    onTap: () => selectDate(context, checkOutController),
+                    validator: (value) {
+                      if (value == null || value.isEmpty) {
+                        return 'Por favor, seleccione la fecha de check-out.';
+                      } else if (checkInController.text.isNotEmpty && DateFormat('dd/MM/yyyy').parse(value!).isBefore(DateFormat('dd/MM/yyyy').parse(checkInController.text))) {
+                        return 'La fecha de check-out debe ser posterior a la de check-in.';
+                      }
+                      return null;
+                    },
+                  ),
+                  TextFormField(
+                    controller: observacionesController,
+                    decoration: const InputDecoration(labelText: 'Observaciones'),
+                    keyboardType: TextInputType.multiline,
+                    maxLines: null,
+                  ),
+                ],
+              ),
             ),
           ),
           actions: [
@@ -344,20 +511,23 @@ class _ReservasScreenState extends State<ReservasScreen> {
             ),
             TextButton(
               onPressed: () {
-                setState(() {
-                  reservas.add({
-                    'habitacion': habitacionController.text,
-                    'nombre': nombreController.text,
-                    'cantidad': int.tryParse(cantidadController.text) ?? 1,
-                    'telefono': telefonoController.text,
-                    'adultos': int.tryParse(adultosController.text) ?? 0,
-                    'ninos': int.tryParse(ninosController.text) ?? 0,
-                    'checkIn': checkInController.text,
-                    'checkOut': checkOutController.text,
-                    'observaciones': observacionesController.text,
+                if (_formKey.currentState!.validate()) {
+                  setState(() {
+                    reservas.add({
+                      'habitacion': habitacionController.text,
+                      'nombre': nombreController.text,
+                      'cantidad': int.tryParse(cantidadController.text) ?? 1,
+                      'telefono': telefonoController.text,
+                      'adultos': int.tryParse(adultosController.text) ?? 0,
+                      'ninos': int.tryParse(ninosController.text) ?? 0,
+                      'checkIn': checkInController.text,
+                      'checkOut': checkOutController.text,
+                      'observaciones': observacionesController.text,
+                    });
+                    _filterReservas();
                   });
-                });
-                Navigator.pop(context);
+                  Navigator.pop(context);
+                }
               },
               child: const Text('Agregar'),
             ),
@@ -367,4 +537,3 @@ class _ReservasScreenState extends State<ReservasScreen> {
     );
   }
 }
-
