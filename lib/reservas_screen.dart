@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'reservas_filter.dart';
+import 'reservas_disponibilidad.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() {
@@ -56,6 +57,21 @@ class _ReservasScreenState extends State<ReservasScreen> {
       'observaciones': 'Solicita desayuno temprano.'
     },
   ];
+
+  void _mostrarDisponibilidad() async {
+  DateTime? fechaSeleccionada = await showDatePicker(
+    context: context,
+    initialDate: DateTime.now(),
+    firstDate: DateTime.now(),
+    lastDate: DateTime(2101),
+    locale: const Locale('es', 'ES'), // Localización en español
+  );
+
+  if (fechaSeleccionada != null) {
+    ReservasDisponibilidad disponibilidad = ReservasDisponibilidad(reservas: reservas);
+    disponibilidad.mostrarHabitacionesDisponibles(context, fechaSeleccionada);
+  }
+}
 
   List<Map<String, dynamic>> filteredReservas = [];
   TextEditingController filterController = TextEditingController();
@@ -171,11 +187,33 @@ class _ReservasScreenState extends State<ReservasScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showAddReservaDialog,
-        backgroundColor: Colors.green,
-        child: const Icon(Icons.add),
+      floatingActionButton: Stack(
+        children: [
+          // Botón para agregar una nueva reserva
+          Positioned(
+            bottom: 16.0,
+            right: 16.0,
+            child: FloatingActionButton(
+              onPressed: _showAddReservaDialog,
+              backgroundColor: Colors.green,
+              child: const Icon(Icons.add),
+              tooltip: 'Agregar reserva',
+            ),
+          ),
+          // Botón para ver disponibilidad
+          Positioned(
+            bottom: 80.0, // Ajuste para mostrarlo encima del botón de agregar
+            right: 16.0,
+            child: FloatingActionButton(
+              onPressed: _mostrarDisponibilidad,
+              backgroundColor: Colors.green[700],
+              child: const Icon(Icons.calendar_today),
+              tooltip: 'Ver disponibilidad',
+            ),
+          ),
+        ],
       ),
+
     );
   }
 
