@@ -5,20 +5,22 @@ import 'reservas_disponibilidad.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() {
-  runApp(MyApp());
+  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return const MaterialApp(
       localizationsDelegates: [
         GlobalMaterialLocalizations.delegate,
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: [
-        const Locale('es', 'ES'), // Configuración en español
+        Locale('es', 'ES'), // Configuración en español
       ],
       home: ReservasScreen(),
     );
@@ -129,7 +131,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
                       padding: const EdgeInsets.symmetric(vertical: 8.0),
                       child: Text(
                         DateFormat('dd MMMM yyyy', 'es').format(DateFormat('dd/MM/yyyy').parse(fecha)),
-                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
                       ),
                     ),
                     ...reservasDelDia.map((reserva) {
@@ -179,7 +181,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
                           reserva['observaciones'],
                         ),
                       );
-                    }).toList(),
+                    }),
                   ],
                 );
               }).toList(),
@@ -196,8 +198,8 @@ class _ReservasScreenState extends State<ReservasScreen> {
             child: FloatingActionButton(
               onPressed: _showAddReservaDialog,
               backgroundColor: Colors.green,
-              child: const Icon(Icons.add),
               tooltip: 'Agregar reserva',
+              child: const Icon(Icons.add),
             ),
           ),
           // Botón para ver disponibilidad
@@ -207,8 +209,8 @@ class _ReservasScreenState extends State<ReservasScreen> {
             child: FloatingActionButton(
               onPressed: _mostrarDisponibilidad,
               backgroundColor: Colors.green[700],
-              child: const Icon(Icons.calendar_today),
               tooltip: 'Ver disponibilidad',
+              child: const Icon(Icons.calendar_today),
             ),
           ),
         ],
@@ -354,7 +356,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Por favor, seleccione la fecha de check-out.';
-                      } else if (checkInController.text.isNotEmpty && DateFormat('dd/MM/yyyy').parse(value!).isBefore(DateFormat('dd/MM/yyyy').parse(checkInController.text))) {
+                      } else if (checkInController.text.isNotEmpty && DateFormat('dd/MM/yyyy').parse(value).isBefore(DateFormat('dd/MM/yyyy').parse(checkInController.text))) {
                         return 'La fecha de check-out debe ser posterior a la de check-in.';
                       }
                       return null;
@@ -526,7 +528,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Por favor, seleccione la fecha de check-out.';
-                      } else if (checkInController.text.isNotEmpty && DateFormat('dd/MM/yyyy').parse(value!).isBefore(DateFormat('dd/MM/yyyy').parse(checkInController.text))) {
+                      } else if (checkInController.text.isNotEmpty && DateFormat('dd/MM/yyyy').parse(value).isBefore(DateFormat('dd/MM/yyyy').parse(checkInController.text))) {
                         return 'La fecha de check-out debe ser posterior a la de check-in.';
                       }
                       return null;
