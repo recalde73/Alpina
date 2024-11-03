@@ -1,3 +1,4 @@
+import 'package:Alpina/main.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'reservas_filter.dart';
@@ -5,11 +6,11 @@ import 'reservas_disponibilidad.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 
 void main() {
-  runApp(const MyApp());
+  runApp(const AlpinaApp());
 }
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class AlpinaApp extends StatelessWidget {
+  const AlpinaApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -97,18 +98,22 @@ class _ReservasScreenState extends State<ReservasScreen> {
     });
   }
 
-  @override
-  Widget build(BuildContext context) {
-    Map<String, List<Map<String, dynamic>>> reservasPorFecha = {};
-    for (var reserva in filteredReservas) {
-      String fecha = reserva['checkIn'];
-      if (reservasPorFecha[fecha] == null) {
-        reservasPorFecha[fecha] = [];
-      }
-      reservasPorFecha[fecha]!.add(reserva);
+@override
+Widget build(BuildContext context) {
+  Map<String, List<Map<String, dynamic>>> reservasPorFecha = {};
+  for (var reserva in filteredReservas) {
+    String fecha = reserva['checkIn'];
+    if (reservasPorFecha[fecha] == null) {
+      reservasPorFecha[fecha] = [];
     }
+    reservasPorFecha[fecha]!.add(reserva);
+  }
 
-    return Scaffold(
+  return GestureDetector(
+    onTap: () {
+      FocusScope.of(context).unfocus(); // Quita el foco de cualquier campo activo al hacer clic fuera
+    },
+    child: Scaffold(
       appBar: AppBar(
         title: const Text('Reservas Alpina'),
       ),
@@ -166,7 +171,19 @@ class _ReservasScreenState extends State<ReservasScreen> {
                             _filterReservas(); // Actualizar el filtro
                           });
                         },
-                        background: Container(color: Colors.red),
+                        background: Container(
+                          color: Colors.red,
+                          alignment: Alignment.centerRight,
+                          padding: const EdgeInsets.symmetric(horizontal: 20.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.end,
+                            children: const [
+                              Icon(Icons.delete, color: Colors.white), // Agrega el ícono de basurero
+                              SizedBox(width: 8),
+                              Text("Eliminar", style: TextStyle(color: Colors.white)),
+                            ],
+                          ),
+                        ),
                         child: _buildReservaCard(
                           context,
                           index,
@@ -181,7 +198,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
                           reserva['observaciones'],
                         ),
                       );
-                    }),
+                    }).toList(),
                   ],
                 );
               }).toList(),
@@ -215,9 +232,10 @@ class _ReservasScreenState extends State<ReservasScreen> {
           ),
         ],
       ),
+    ),
+  );
+}
 
-    );
-  }
 
   Widget _buildReservaCard(BuildContext context, int index, String habitacion, String nombre, int cantidad, String telefono, int adultos, int ninos, String checkIn, String checkOut, String observaciones) {
     return Card(
