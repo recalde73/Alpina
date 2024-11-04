@@ -1,11 +1,10 @@
-import 'package:Alpina/main.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'reservas_filter.dart';
 import 'reservas_disponibilidad.dart';
-import 'package:flutter_localizations/flutter_localizations.dart';
 import 'reservas_card.dart';
 import 'reservas_add_edit.dart';
+import 'reservas_repository.dart';
 
 class ReservasScreen extends StatefulWidget {
   const ReservasScreen({super.key});
@@ -15,48 +14,47 @@ class ReservasScreen extends StatefulWidget {
 }
 
 class _ReservasScreenState extends State<ReservasScreen> {
-  List<Map<String, dynamic>> reservas = [
-    {
-      'habitacion': 'Habitación: 101',
-      'nombre': 'Juan Pérez',
-      'cantidad': 2,
-      'telefono': '123456789',
-      'adultos': 2,
-      'ninos': 0,
-      'checkIn': '30/10/2024',
-      'checkOut': '02/11/2024',
-      'observaciones': 'Preferencia por vista al jardín.'
-    },
-    {
-      'habitacion': 'Habitación: 102',
-      'nombre': 'Ana Gómez',
-      'cantidad': 1,
-      'telefono': '987654321',
-      'adultos': 1,
-      'ninos': 1,
-      'checkIn': '30/10/2024',
-      'checkOut': '01/11/2024',
-      'observaciones': 'Solicita desayuno temprano.'
-    },
-  ];
-
+  final ReservasRepository _reservasRepository = ReservasRepository();
+  List<Map<String, dynamic>> reservas = [];
   List<Map<String, dynamic>> filteredReservas = [];
   TextEditingController filterController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  bool _isLoading = true;
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    filteredReservas = reservas; // Mostrar todas las reservas inicialmente
+    _loadReservas();
     filterController.addListener(_filterReservas);
+  }
+
+  void _loadReservas() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    try {
+      List<Map<String, dynamic>> loadedReservas = await _reservasRepository.getReservas();
+      setState(() {
+        reservas = loadedReservas;
+        filteredReservas = reservas;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = "Error al cargar las reservas: $e";
+      });
+    }
   }
 
   void _filterReservas() {
     setState(() {
       String query = filterController.text.toLowerCase();
       filteredReservas = reservas.where((reserva) {
-        final nombre = reserva['nombre'].toLowerCase();
-        final habitacion = reserva['habitacion'].toLowerCase();
+        final nombre = reserva['nombre']?.toLowerCase() ?? '';
+        final habitacion = reserva['habitacion']?.toLowerCase() ?? '';
         return nombre.contains(query) || habitacion.contains(query);
       }).toList();
     });
@@ -89,11 +87,15 @@ class _ReservasScreenState extends State<ReservasScreen> {
       checkInController: TextEditingController(),
       checkOutController: TextEditingController(),
       observacionesController: TextEditingController(),
-      onSave: (newReserva) {
-        setState(() {
-          reservas.add(newReserva);
-          _filterReservas();
-        });
+      onSave: (newReserva) async {
+        try {
+          await _reservasRepository.addReserva(newReserva);
+          _loadReservas();
+        } catch (e) {
+          setState(() {
+            _errorMessage = "Error al agregar la reserva: $e";
+          });
+        }
       },
     );
 
@@ -103,20 +105,24 @@ class _ReservasScreenState extends State<ReservasScreen> {
   void _showEditReservaDialog(int index, Map<String, dynamic> reserva) {
     ReservasAddEdit reservasAddEdit = ReservasAddEdit(
       formKey: _formKey,
-      habitacionController: TextEditingController(text: reserva['habitacion']),
-      nombreController: TextEditingController(text: reserva['nombre']),
-      telefonoController: TextEditingController(text: reserva['telefono']),
-      cantidadController: TextEditingController(text: reserva['cantidad'].toString()),
-      adultosController: TextEditingController(text: reserva['adultos'].toString()),
-      ninosController: TextEditingController(text: reserva['ninos'].toString()),
-      checkInController: TextEditingController(text: reserva['checkIn']),
-      checkOutController: TextEditingController(text: reserva['checkOut']),
-      observacionesController: TextEditingController(text: reserva['observaciones']),
-      onSave: (updatedReserva) {
-        setState(() {
-          reservas[index] = updatedReserva;
-          _filterReservas();
-        });
+      habitacionController: TextEditingController(text: reserva['habitacion'] ?? ''),
+      nombreController: TextEditingController(text: reserva['nombre'] ?? ''),
+      telefonoController: TextEditingController(text: reserva['telefono'] ?? ''),
+      cantidadController: TextEditingController(text: reserva['cantidad']?.toString() ?? ''),
+      adultosController: TextEditingController(text: reserva['adultos']?.toString() ?? ''),
+      ninosController: TextEditingController(text: reserva['ninos']?.toString() ?? ''),
+      checkInController: TextEditingController(text: reserva['checkIn'] ?? ''),
+      checkOutController: TextEditingController(text: reserva['checkOut'] ?? ''),
+      observacionesController: TextEditingController(text: reserva['observaciones'] ?? ''),
+      onSave: (updatedReserva) async {
+        try {
+          await _reservasRepository.updateReserva(reserva['id'], updatedReserva);
+          _loadReservas();
+        } catch (e) {
+          setState(() {
+            _errorMessage = "Error al actualizar la reserva: $e";
+          });
+        }
       },
     );
 
@@ -125,13 +131,60 @@ class _ReservasScreenState extends State<ReservasScreen> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Reservas Alpina'),
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_errorMessage != null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Reservas Alpina'),
+        ),
+        body: Center(
+          child: Text(
+            _errorMessage!,
+            style: const TextStyle(fontSize: 18, color: Colors.red),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
+    if (filteredReservas.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Reservas Alpina'),
+        ),
+        body: const Center(
+          child: Text(
+            'No hay reservas disponibles.',
+            style: TextStyle(fontSize: 18),
+          ),
+        ),
+      );
+    }
+
     Map<String, List<Map<String, dynamic>>> reservasPorFecha = {};
     for (var reserva in filteredReservas) {
-      String fecha = reserva['checkIn'];
-      if (reservasPorFecha[fecha] == null) {
-        reservasPorFecha[fecha] = [];
+      String? fecha = reserva['checkIn'];
+
+      if (fecha != null && fecha.isNotEmpty) {
+        try {
+          DateTime parsedFecha = DateFormat('dd/MM/yyyy').parse(fecha);
+
+          if (reservasPorFecha[fecha] == null) {
+            reservasPorFecha[fecha] = [];
+          }
+          reservasPorFecha[fecha]!.add(reserva);
+        } catch (e) {
+          print("Error al parsear la fecha: $e");
+        }
       }
-      reservasPorFecha[fecha]!.add(reserva);
     }
 
     return GestureDetector(
@@ -170,17 +223,21 @@ class _ReservasScreenState extends State<ReservasScreen> {
                           context: context,
                           index: index,
                           reserva: reserva,
-                          onDismissed: () {
-                            setState(() {
-                              reservas.removeAt(index);
-                              _filterReservas(); // Actualizar el filtro
-                            });
+                          onDismissed: () async {
+                            try {
+                              await _reservasRepository.deleteReserva(reserva['id']);
+                              _loadReservas();
+                            } catch (e) {
+                              setState(() {
+                                _errorMessage = "Error al eliminar la reserva: $e";
+                              });
+                            }
                           },
                           onCardTap: () {
                             _showEditReservaDialog(index, reserva);
                           },
                         );
-                      }).toList(),
+                      }),
                     ],
                   );
                 }).toList(),
@@ -218,3 +275,4 @@ class _ReservasScreenState extends State<ReservasScreen> {
     );
   }
 }
+
