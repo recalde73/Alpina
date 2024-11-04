@@ -17,11 +17,11 @@ class _ReservasScreenState extends State<ReservasScreen> {
   final ReservasRepository _reservasRepository = ReservasRepository();
   List<Map<String, dynamic>> reservas = [];
   List<Map<String, dynamic>> filteredReservas = [];
+  List<Map<String, dynamic>> reservasPasadas = [];
   TextEditingController filterController = TextEditingController();
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   bool _isLoading = true;
   String? _errorMessage;
-  bool mostrarTodasLasReservas = false;
 
   @override
   void initState() {
@@ -59,21 +59,27 @@ class _ReservasScreenState extends State<ReservasScreen> {
         final checkOut = reserva['checkOut'] ?? '';
 
         bool matchesQuery = nombre.contains(query) || habitacion.contains(query);
-        
-        if (mostrarTodasLasReservas) {
-          return matchesQuery;
-        } else {
-          if (checkOut.isNotEmpty) {
-            DateTime checkOutDate = DateFormat('dd/MM/yyyy').parse(checkOut);
-            DateTime fiveDaysAgo = DateTime.now().subtract(const Duration(days: 5));
-            return matchesQuery && checkOutDate.isAfter(fiveDaysAgo);
+
+        if (checkOut.isNotEmpty) {
+          DateTime checkOutDate = DateFormat('dd/MM/yyyy').parse(checkOut);
+          DateTime now = DateTime.now();
+          if (checkOutDate.isBefore(now)) {
+            reservasPasadas.add(reserva);
+            return false;
           }
-          return false;
         }
+        return matchesQuery;
       }).toList();
 
       // Ordenar las reservas por fecha de check-in de la más antigua a la más reciente
       filteredReservas.sort((a, b) {
+        DateTime fechaA = DateFormat('dd/MM/yyyy').parse(a['checkIn'] ?? '');
+        DateTime fechaB = DateFormat('dd/MM/yyyy').parse(b['checkIn'] ?? '');
+        return fechaA.compareTo(fechaB);
+      });
+
+      // Ordenar las reservas pasadas por fecha de check-in de la más antigua a la más reciente
+      reservasPasadas.sort((a, b) {
         DateTime fechaA = DateFormat('dd/MM/yyyy').parse(a['checkIn'] ?? '');
         DateTime fechaB = DateFormat('dd/MM/yyyy').parse(b['checkIn'] ?? '');
         return fechaA.compareTo(fechaB);
@@ -153,7 +159,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 2, // Número de pestañas
+      length: 3, // Número de pestañas
       child: Scaffold(
         appBar: AppBar(
           title: const Text(
@@ -171,8 +177,9 @@ class _ReservasScreenState extends State<ReservasScreen> {
                 labelColor: Colors.white,
                 unselectedLabelColor: Colors.black,
                 tabs: [
-                  Tab(text: "Reservas"),
-                  Tab(text: "Reporte de Ganancias"),
+                  Tab(text: "Reservas 📝"),
+                  Tab(text: "Historial 📜"),
+                  Tab(text: "Reporte 📊"),
                 ],
               ),
             ),
@@ -181,7 +188,77 @@ class _ReservasScreenState extends State<ReservasScreen> {
         body: TabBarView(
           children: [
             _buildReservasTab(),
+            _buildReservasPasadasTab(),
             _buildReporteTab(),
+          ],
+        ),
+        floatingActionButton: Stack(
+          children: [
+            // Botón para agregar una nueva reserva
+            Positioned(
+              bottom: 16.0,
+              right: 16.0,
+              child: FloatingActionButton(
+                onPressed: _showAddReservaDialog,
+                backgroundColor: Colors.green,
+                tooltip: 'Agregar reserva',
+                child: const Icon(Icons.add),
+              ),
+            ),
+            // Botón para ver disponibilidad
+            Positioned(
+              bottom: 80.0, // Ajuste para mostrarlo encima del botón de agregar
+              right: 16.0,
+              child: FloatingActionButton(
+                onPressed: _mostrarDisponibilidad,
+                backgroundColor: Colors.green[700],
+                tooltip: 'Ver disponibilidad',
+                child: const Icon(Icons.calendar_today),
+              ),
+            ),
+            // Botón de búsqueda
+            Positioned(
+              bottom: 144.0, // Ajuste para mostrarlo encima del botón de ver disponibilidad
+              right: 16.0,
+              child: FloatingActionButton(
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder: (context) {
+                      return AlertDialog(
+                        title: const Text('Buscar Reservas'),
+                        content: TextField(
+                          controller: filterController,
+                          decoration: const InputDecoration(
+                            hintText: 'Ingrese nombre o habitación',
+                          ),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () {
+                              Navigator.of(context).pop();
+                              _filterReservas();
+                            },
+                            child: const Text('Buscar'),
+                          ),
+                          TextButton(
+                            onPressed: () {
+                              filterController.clear();
+                              Navigator.of(context).pop();
+                              _filterReservas();
+                            },
+                            child: const Text('Restaurar'),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+                backgroundColor: Colors.green[400],
+                tooltip: 'Buscar',
+                child: const Icon(Icons.search),
+              ),
+            ),
           ],
         ),
       ),
@@ -235,17 +312,100 @@ class _ReservasScreenState extends State<ReservasScreen> {
       },
       child: Column(
         children: [
-          ReservasFilter(
-            controller: filterController,
-            onFilterChanged: (query) => _filterReservas(),
-            mostrarTodas: mostrarTodasLasReservas,
-            onMostrarTodasChanged: (value) {
-              setState(() {
-                mostrarTodasLasReservas = value;
-                _filterReservas();
-              });
-            },
+          Expanded(
+            child: ListView(
+              children: reservasPorFecha.entries.map((entry) {
+                String fecha = entry.key;
+                List<Map<String, dynamic>> reservasDelDia = entry.value;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: Text(
+                        DateFormat('dd MMMM yyyy', 'es').format(DateFormat('dd/MM/yyyy').parse(fecha)),
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
+                      ),
+                    ),
+                    ...reservasDelDia.map((reserva) {
+                      int index = reservas.indexOf(reserva);
+                      return buildDismissibleReserva(
+                        context: context,
+                        index: index,
+                        reserva: reserva,
+                        onDismissed: () async {
+                          try {
+                            await _reservasRepository.deleteReserva(reserva['id']);
+                            _loadReservas();
+                          } catch (e) {
+                            setState(() {
+                              _errorMessage = "Error al eliminar la reserva: $e";
+                            });
+                          }
+                        },
+                        onCardTap: () {
+                          _showEditReservaDialog(index, reserva);
+                        },
+                      );
+                    }),
+                  ],
+                );
+              }).toList(),
+            ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReservasPasadasTab() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_errorMessage != null) {
+      return Center(
+        child: Text(
+          _errorMessage!,
+          style: const TextStyle(fontSize: 18, color: Colors.red),
+          textAlign: TextAlign.center,
+        ),
+      );
+    }
+
+    if (reservasPasadas.isEmpty) {
+      return const Center(
+        child: Text(
+          'No hay reservas pasadas disponibles.',
+          style: TextStyle(fontSize: 18),
+        ),
+      );
+    }
+
+    // Agrupar reservas pasadas por fecha de check-in
+    Map<String, List<Map<String, dynamic>>> reservasPorFecha = {};
+    for (var reserva in reservasPasadas) {
+      String? fecha = reserva['checkIn'];
+
+      if (fecha != null && fecha.isNotEmpty) {
+        try {
+          if (reservasPorFecha[fecha] == null) {
+            reservasPorFecha[fecha] = [];
+          }
+          reservasPorFecha[fecha]!.add(reserva);
+        } catch (e) {
+          print("Error al parsear la fecha: $e");
+        }
+      }
+    }
+
+    return GestureDetector(
+      onTap: () {
+        FocusScope.of(context).unfocus(); // Quita el foco de cualquier campo activo al hacer clic fuera
+      },
+      child: Column(
+        children: [
           Expanded(
             child: ListView(
               children: reservasPorFecha.entries.map((entry) {
@@ -296,11 +456,14 @@ class _ReservasScreenState extends State<ReservasScreen> {
   Widget _buildReporteTab() {
     return const Center(
       child: Text(
-        'Aquí se mostrará el reporte de ganancias.',
+        'Aca se veran muchos millones :)',
         style: TextStyle(fontSize: 18),
       ),
     );
   }
 }
+
+
+
 
 
