@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'reservas_filter.dart';
 import 'reservas_disponibilidad.dart';
-import 'reservas_card.dart';
 import 'reservas_add_edit.dart';
 import 'reservas_repository.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class ReservasScreen extends StatefulWidget {
   const ReservasScreen({super.key});
@@ -154,6 +153,15 @@ class _ReservasScreenState extends State<ReservasScreen> {
     );
 
     reservasAddEdit.showAddEditDialog(context, isEditing: true);
+  }
+
+  Future<void> _callPhoneNumber(String phoneNumber) async {
+    final Uri url = Uri(scheme: 'tel', path: phoneNumber);
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url);
+    } else {
+      throw 'No se pudo abrir $url';
+    }
   }
 
   @override
@@ -330,23 +338,28 @@ class _ReservasScreenState extends State<ReservasScreen> {
                     ),
                     ...reservasDelDia.map((reserva) {
                       int index = reservas.indexOf(reserva);
-                      return buildDismissibleReserva(
-                        context: context,
-                        index: index,
-                        reserva: reserva,
-                        onDismissed: () async {
-                          try {
-                            await _reservasRepository.deleteReserva(reserva['id']);
-                            _loadReservas();
-                          } catch (e) {
-                            setState(() {
-                              _errorMessage = "Error al eliminar la reserva: $e";
-                            });
-                          }
-                        },
-                        onCardTap: () {
-                          _showEditReservaDialog(index, reserva);
-                        },
+                      return Card(
+                        margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                        child: ListTile(
+                          title: Text('Habitación: ${reserva['habitacion']} - ${reserva['nombre']}'),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Teléfono: ${reserva['telefono']}'),
+                              Text('Adultos: ${reserva['adultos']}, Niños: ${reserva['ninos']}'),
+                              Text('Check-in: ${reserva['checkIn']}'),
+                              Text('Check-out: ${reserva['checkOut']}'),
+                              Text('Observaciones: ${reserva['observaciones']}'),
+                            ],
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.phone, color: Colors.green),
+                            onPressed: () => _callPhoneNumber(reserva['telefono']),
+                          ),
+                          onTap: () {
+                            _showEditReservaDialog(index, reserva);
+                          },
+                        ),
                       );
                     }),
                   ],
@@ -424,23 +437,28 @@ class _ReservasScreenState extends State<ReservasScreen> {
                     ),
                     ...reservasDelDia.map((reserva) {
                       int index = reservas.indexOf(reserva);
-                      return buildDismissibleReserva(
-                        context: context,
-                        index: index,
-                        reserva: reserva,
-                        onDismissed: () async {
-                          try {
-                            await _reservasRepository.deleteReserva(reserva['id']);
-                            _loadReservas();
-                          } catch (e) {
-                            setState(() {
-                              _errorMessage = "Error al eliminar la reserva: $e";
-                            });
-                          }
-                        },
-                        onCardTap: () {
-                          _showEditReservaDialog(index, reserva);
-                        },
+                      return Card(
+                        margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                        child: ListTile(
+                          title: Text('Habitación: ${reserva['habitacion']} - ${reserva['nombre']}'),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text('Teléfono: ${reserva['telefono']}'),
+                              Text('Adultos: ${reserva['adultos']}, Niños: ${reserva['ninos']}'),
+                              Text('Check-in: ${reserva['checkIn']}'),
+                              Text('Check-out: ${reserva['checkOut']}'),
+                              Text('Observaciones: ${reserva['observaciones']}'),
+                            ],
+                          ),
+                          trailing: IconButton(
+                            icon: const Icon(Icons.phone, color: Colors.green),
+                            onPressed: () => _callPhoneNumber(reserva['telefono']),
+                          ),
+                          onTap: () {
+                            _showEditReservaDialog(index, reserva);
+                          },
+                        ),
                       );
                     }),
                   ],
@@ -462,8 +480,3 @@ class _ReservasScreenState extends State<ReservasScreen> {
     );
   }
 }
-
-
-
-
-
