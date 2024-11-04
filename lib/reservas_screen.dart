@@ -152,26 +152,62 @@ class _ReservasScreenState extends State<ReservasScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return Scaffold(
+    return DefaultTabController(
+      length: 2, // Número de pestañas
+      child: Scaffold(
         appBar: AppBar(
-          title: const Text('Reservas Alpina'),
+          title: const Text(
+            'Alpina Green',
+            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+            textAlign: TextAlign.center,
+          ),
+          backgroundColor: Colors.green, // Color de la barra de "Alpina Green"
+          bottom: const PreferredSize(
+            preferredSize: Size.fromHeight(48.0),
+            child: Material(
+              color: Color(0xFF81C784), // Color más claro para distinguir las pestañas
+              child: TabBar(
+                indicatorColor: Colors.white,
+                labelColor: Colors.white,
+                unselectedLabelColor: Colors.black,
+                tabs: [
+                  Tab(text: "Reservas"),
+                  Tab(text: "Reporte de Ganancias"),
+                ],
+              ),
+            ),
+          ),
         ),
-        body: const Center(child: CircularProgressIndicator()),
-      );
+        body: TabBarView(
+          children: [
+            _buildReservasTab(),
+            _buildReporteTab(),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReservasTab() {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (_errorMessage != null) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Reservas Alpina'),
+      return Center(
+        child: Text(
+          _errorMessage!,
+          style: const TextStyle(fontSize: 18, color: Colors.red),
+          textAlign: TextAlign.center,
         ),
-        body: Center(
-          child: Text(
-            _errorMessage!,
-            style: const TextStyle(fontSize: 18, color: Colors.red),
-            textAlign: TextAlign.center,
-          ),
+      );
+    }
+
+    if (filteredReservas.isEmpty) {
+      return const Center(
+        child: Text(
+          'No hay reservas disponibles.',
+          style: TextStyle(fontSize: 18),
         ),
       );
     }
@@ -197,103 +233,74 @@ class _ReservasScreenState extends State<ReservasScreen> {
       onTap: () {
         FocusScope.of(context).unfocus(); // Quita el foco de cualquier campo activo al hacer clic fuera
       },
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Reservas Alpina'),
-        ),
-        body: Column(
-          children: [
-            ReservasFilter(
-              controller: filterController,
-              onFilterChanged: (query) => _filterReservas(),
-              mostrarTodas: mostrarTodasLasReservas,
-              onMostrarTodasChanged: (value) {
-                setState(() {
-                  mostrarTodasLasReservas = value;
-                  _filterReservas();
-                });
-              },
-            ),
-            if (filteredReservas.isEmpty)
-              const Center(
-                child: Text(
-                  'No hay reservas disponibles.',
-                  style: TextStyle(fontSize: 18),
-                ),
-              )
-            else
-              Expanded(
-                child: ListView(
-                  children: reservasPorFecha.entries.map((entry) {
-                    String fecha = entry.key;
-                    List<Map<String, dynamic>> reservasDelDia = entry.value;
+      child: Column(
+        children: [
+          ReservasFilter(
+            controller: filterController,
+            onFilterChanged: (query) => _filterReservas(),
+            mostrarTodas: mostrarTodasLasReservas,
+            onMostrarTodasChanged: (value) {
+              setState(() {
+                mostrarTodasLasReservas = value;
+                _filterReservas();
+              });
+            },
+          ),
+          Expanded(
+            child: ListView(
+              children: reservasPorFecha.entries.map((entry) {
+                String fecha = entry.key;
+                List<Map<String, dynamic>> reservasDelDia = entry.value;
 
-                    return Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 8.0),
-                          child: Text(
-                            DateFormat('dd MMMM yyyy', 'es').format(DateFormat('dd/MM/yyyy').parse(fecha)),
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
-                          ),
-                        ),
-                        ...reservasDelDia.map((reserva) {
-                          int index = reservas.indexOf(reserva);
-                          return buildDismissibleReserva(
-                            context: context,
-                            index: index,
-                            reserva: reserva,
-                            onDismissed: () async {
-                              try {
-                                await _reservasRepository.deleteReserva(reserva['id']);
-                                _loadReservas();
-                              } catch (e) {
-                                setState(() {
-                                  _errorMessage = "Error al eliminar la reserva: $e";
-                                });
-                              }
-                            },
-                            onCardTap: () {
-                              _showEditReservaDialog(index, reserva);
-                            },
-                          );
-                        }).toList(),
-                      ],
-                    );
-                  }).toList(),
-                ),
-              ),
-          ],
-        ),
-        floatingActionButton: Stack(
-          children: [
-            // Botón para agregar una nueva reserva
-            Positioned(
-              bottom: 16.0,
-              right: 16.0,
-              child: FloatingActionButton(
-                onPressed: _showAddReservaDialog,
-                backgroundColor: Colors.green,
-                tooltip: 'Agregar reserva',
-                child: const Icon(Icons.add),
-              ),
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: Text(
+                        DateFormat('dd MMMM yyyy', 'es').format(DateFormat('dd/MM/yyyy').parse(fecha)),
+                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
+                      ),
+                    ),
+                    ...reservasDelDia.map((reserva) {
+                      int index = reservas.indexOf(reserva);
+                      return buildDismissibleReserva(
+                        context: context,
+                        index: index,
+                        reserva: reserva,
+                        onDismissed: () async {
+                          try {
+                            await _reservasRepository.deleteReserva(reserva['id']);
+                            _loadReservas();
+                          } catch (e) {
+                            setState(() {
+                              _errorMessage = "Error al eliminar la reserva: $e";
+                            });
+                          }
+                        },
+                        onCardTap: () {
+                          _showEditReservaDialog(index, reserva);
+                        },
+                      );
+                    }),
+                  ],
+                );
+              }).toList(),
             ),
-            // Botón para ver disponibilidad
-            Positioned(
-              bottom: 80.0, // Ajuste para mostrarlo encima del botón de agregar
-              right: 16.0,
-              child: FloatingActionButton(
-                onPressed: _mostrarDisponibilidad,
-                backgroundColor: Colors.green[700],
-                tooltip: 'Ver disponibilidad',
-                child: const Icon(Icons.calendar_today),
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildReporteTab() {
+    return const Center(
+      child: Text(
+        'Aquí se mostrará el reporte de ganancias.',
+        style: TextStyle(fontSize: 18),
       ),
     );
   }
 }
+
 
