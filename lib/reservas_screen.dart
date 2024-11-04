@@ -21,6 +21,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   bool _isLoading = true;
   String? _errorMessage;
+  bool mostrarTodasLasReservas = false;
 
   @override
   void initState() {
@@ -38,7 +39,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
       List<Map<String, dynamic>> loadedReservas = await _reservasRepository.getReservas();
       setState(() {
         reservas = loadedReservas;
-        filteredReservas = reservas;
+        _filterReservas();
         _isLoading = false;
       });
     } catch (e) {
@@ -55,8 +56,28 @@ class _ReservasScreenState extends State<ReservasScreen> {
       filteredReservas = reservas.where((reserva) {
         final nombre = reserva['nombre']?.toLowerCase() ?? '';
         final habitacion = reserva['habitacion']?.toLowerCase() ?? '';
-        return nombre.contains(query) || habitacion.contains(query);
+        final checkOut = reserva['checkOut'] ?? '';
+
+        bool matchesQuery = nombre.contains(query) || habitacion.contains(query);
+        
+        if (mostrarTodasLasReservas) {
+          return matchesQuery;
+        } else {
+          if (checkOut.isNotEmpty) {
+            DateTime checkOutDate = DateFormat('dd/MM/yyyy').parse(checkOut);
+            DateTime fiveDaysAgo = DateTime.now().subtract(const Duration(days: 5));
+            return matchesQuery && checkOutDate.isAfter(fiveDaysAgo);
+          }
+          return false;
+        }
       }).toList();
+
+      // Ordenar las reservas por fecha de check-in de la más antigua a la más reciente
+      filteredReservas.sort((a, b) {
+        DateTime fechaA = DateFormat('dd/MM/yyyy').parse(a['checkIn'] ?? '');
+        DateTime fechaB = DateFormat('dd/MM/yyyy').parse(b['checkIn'] ?? '');
+        return fechaA.compareTo(fechaB);
+      });
     });
   }
 
@@ -155,28 +176,13 @@ class _ReservasScreenState extends State<ReservasScreen> {
       );
     }
 
-    if (filteredReservas.isEmpty) {
-      return Scaffold(
-        appBar: AppBar(
-          title: const Text('Reservas Alpina'),
-        ),
-        body: const Center(
-          child: Text(
-            'No hay reservas disponibles.',
-            style: TextStyle(fontSize: 18),
-          ),
-        ),
-      );
-    }
-
+    // Agrupar reservas por fecha de check-in
     Map<String, List<Map<String, dynamic>>> reservasPorFecha = {};
     for (var reserva in filteredReservas) {
       String? fecha = reserva['checkIn'];
 
       if (fecha != null && fecha.isNotEmpty) {
         try {
-          DateTime parsedFecha = DateFormat('dd/MM/yyyy').parse(fecha);
-
           if (reservasPorFecha[fecha] == null) {
             reservasPorFecha[fecha] = [];
           }
@@ -200,49 +206,64 @@ class _ReservasScreenState extends State<ReservasScreen> {
             ReservasFilter(
               controller: filterController,
               onFilterChanged: (query) => _filterReservas(),
+              mostrarTodas: mostrarTodasLasReservas,
+              onMostrarTodasChanged: (value) {
+                setState(() {
+                  mostrarTodasLasReservas = value;
+                  _filterReservas();
+                });
+              },
             ),
-            Expanded(
-              child: ListView(
-                children: reservasPorFecha.entries.map((entry) {
-                  String fecha = entry.key;
-                  List<Map<String, dynamic>> reservasDelDia = entry.value;
+            if (filteredReservas.isEmpty)
+              const Center(
+                child: Text(
+                  'No hay reservas disponibles.',
+                  style: TextStyle(fontSize: 18),
+                ),
+              )
+            else
+              Expanded(
+                child: ListView(
+                  children: reservasPorFecha.entries.map((entry) {
+                    String fecha = entry.key;
+                    List<Map<String, dynamic>> reservasDelDia = entry.value;
 
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 8.0),
-                        child: Text(
-                          DateFormat('dd MMMM yyyy', 'es').format(DateFormat('dd/MM/yyyy').parse(fecha)),
-                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 8.0),
+                          child: Text(
+                            DateFormat('dd MMMM yyyy', 'es').format(DateFormat('dd/MM/yyyy').parse(fecha)),
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
+                          ),
                         ),
-                      ),
-                      ...reservasDelDia.map((reserva) {
-                        int index = reservas.indexOf(reserva);
-                        return buildDismissibleReserva(
-                          context: context,
-                          index: index,
-                          reserva: reserva,
-                          onDismissed: () async {
-                            try {
-                              await _reservasRepository.deleteReserva(reserva['id']);
-                              _loadReservas();
-                            } catch (e) {
-                              setState(() {
-                                _errorMessage = "Error al eliminar la reserva: $e";
-                              });
-                            }
-                          },
-                          onCardTap: () {
-                            _showEditReservaDialog(index, reserva);
-                          },
-                        );
-                      }),
-                    ],
-                  );
-                }).toList(),
+                        ...reservasDelDia.map((reserva) {
+                          int index = reservas.indexOf(reserva);
+                          return buildDismissibleReserva(
+                            context: context,
+                            index: index,
+                            reserva: reserva,
+                            onDismissed: () async {
+                              try {
+                                await _reservasRepository.deleteReserva(reserva['id']);
+                                _loadReservas();
+                              } catch (e) {
+                                setState(() {
+                                  _errorMessage = "Error al eliminar la reserva: $e";
+                                });
+                              }
+                            },
+                            onCardTap: () {
+                              _showEditReservaDialog(index, reserva);
+                            },
+                          );
+                        }).toList(),
+                      ],
+                    );
+                  }).toList(),
+                ),
               ),
-            ),
           ],
         ),
         floatingActionButton: Stack(
