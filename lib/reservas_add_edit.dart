@@ -139,7 +139,7 @@ class ReservasAddEdit {
                     validator: (value) {
                       if (value == null || value.isEmpty) {
                         return 'Por favor, seleccione la fecha de check-out.';
-                      } else if (checkInController.text.isNotEmpty && DateFormat('dd/MM/yyyy').parse(value!).isBefore(DateFormat('dd/MM/yyyy').parse(checkInController.text))) {
+                      } else if (checkInController.text.isNotEmpty && DateFormat('dd/MM/yyyy').parse(value).isBefore(DateFormat('dd/MM/yyyy').parse(checkInController.text))) {
                         return 'La fecha de check-out debe ser posterior a la de check-in.';
                       }
                       return null;

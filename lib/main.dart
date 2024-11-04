@@ -8,15 +8,7 @@ import 'firebase_options.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
-    options: FirebaseOptions(
-      apiKey: "AIzaSyAQFJoAVe--vSicgSIOfKW6jgd_z0DImfc",
-      authDomain: "alpina-f38a0.firebaseapp.com",
-      projectId: "alpina-f38a0",
-      storageBucket: "alpina-f38a0.appspot.com",
-      messagingSenderId: "289526242558",
-      appId: "1:289526242558:web:deefcdd5c7d540900559af",
-      measurementId: "G-H8TCSE152Q"
-    ),
+    options: DefaultFirebaseOptions.currentPlatform, // Usa las opciones generadas para Firebase
   );
   runApp(const AlpinaApp());
 }

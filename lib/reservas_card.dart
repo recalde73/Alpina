@@ -36,9 +36,9 @@ Widget buildDismissibleReserva({
       color: Colors.red,
       alignment: Alignment.centerRight,
       padding: const EdgeInsets.symmetric(horizontal: 20.0),
-      child: Row(
+      child: const Row(
         mainAxisAlignment: MainAxisAlignment.end,
-        children: const [
+        children: [
           Icon(Icons.delete, color: Colors.white), // Agrega el ícono de basurero
           SizedBox(width: 8),
           Text("Eliminar", style: TextStyle(color: Colors.white)),
