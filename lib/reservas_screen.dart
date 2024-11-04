@@ -1,348 +1,278 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'reservas_filter.dart';
+import 'reservas_disponibilidad.dart';
+import 'reservas_card.dart';
+import 'reservas_add_edit.dart';
+import 'reservas_repository.dart';
 
 class ReservasScreen extends StatefulWidget {
-  const ReservasScreen({Key? key}) : super(key: key);
+  const ReservasScreen({super.key});
 
   @override
   _ReservasScreenState createState() => _ReservasScreenState();
 }
 
 class _ReservasScreenState extends State<ReservasScreen> {
-  List<Map<String, dynamic>> reservas = [
-    {
-      'habitacion': 'Habitación: 101',
-      'nombre': 'Juan Pérez',
-      'cantidad': 2,
-      'telefono': '123456789',
-      'adultos': 2,
-      'ninos': 0,
-      'checkIn': '30/10/2024',
-      'checkOut': '02/11/2024',
-      'observaciones': 'Preferencia por vista al jardín.'
-    },
-    {
-      'habitacion': 'Habitación: 102',
-      'nombre': 'Ana Gómez',
-      'cantidad': 1,
-      'telefono': '987654321',
-      'adultos': 1,
-      'ninos': 1,
-      'checkIn': '30/10/2024',
-      'checkOut': '01/11/2024',
-      'observaciones': 'Solicita desayuno temprano.'
-    },
-  ];
+  final ReservasRepository _reservasRepository = ReservasRepository();
+  List<Map<String, dynamic>> reservas = [];
+  List<Map<String, dynamic>> filteredReservas = [];
+  TextEditingController filterController = TextEditingController();
+  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  bool _isLoading = true;
+  String? _errorMessage;
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Reservas Alpina'),
-      ),
-      body: ListView.builder(
-        itemCount: reservas.length,
-        itemBuilder: (context, index) {
-          final reserva = reservas[index];
-          return Dismissible(
-            key: UniqueKey(),
-            direction: DismissDirection.endToStart,
-            confirmDismiss: (direction) async {
-              return await showDialog(
-                context: context,
-                builder: (BuildContext context) {
-                  return AlertDialog(
-                    title: const Text("Confirmar eliminación"),
-                    content: const Text("¿Estás seguro de que deseas eliminar esta reserva?"),
-                    actions: [
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(false),
-                        child: const Text("Cancelar"),
-                      ),
-                      TextButton(
-                        onPressed: () => Navigator.of(context).pop(true),
-                        child: const Text("Eliminar"),
-                      ),
-                    ],
-                  );
-                },
-              );
-            },
-            onDismissed: (direction) {
-              setState(() {
-                reservas.removeAt(index);
-              });
-            },
-            background: Container(color: Colors.red),
-            child: _buildReservaCard(
-              context,
-              index,
-              reserva['habitacion'],
-              reserva['nombre'],
-              reserva['cantidad'],
-              reserva['telefono'],
-              reserva['adultos'],
-              reserva['ninos'],
-              reserva['checkIn'],
-              reserva['checkOut'],
-              reserva['observaciones'],
-            ),
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _showAddReservaDialog,
-        child: const Icon(Icons.add),
-        backgroundColor: Colors.green,
-      ),
-    );
+  void initState() {
+    super.initState();
+    _loadReservas();
+    filterController.addListener(_filterReservas);
   }
 
-  Widget _buildReservaCard(BuildContext context, int index, String habitacion, String nombre, int cantidad, String telefono, int adultos, int ninos, String checkIn, String checkOut, String observaciones) {
-    return Card(
-      color: Colors.green[100],
-      margin: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-      child: ListTile(
-        title: Text('$habitacion - $nombre'),
-        subtitle: Text('Teléfono: $telefono\nAdultos: $adultos, Niños: $ninos\nCheck-in: $checkIn\nCheck-out: $checkOut\nObservaciones: $observaciones'),
-        onTap: () {
-          _showReservaDetails(context, index, habitacion, nombre, cantidad, telefono, adultos, ninos, checkIn, checkOut, observaciones);
-        },
-      ),
-    );
-  }
-
-  void _showReservaDetails(BuildContext context, int index, String habitacion, String nombre, int cantidad, String telefono, int adultos, int ninos, String checkIn, String checkOut, String observaciones) {
-    TextEditingController habitacionController = TextEditingController(text: habitacion);
-    TextEditingController nombreController = TextEditingController(text: nombre);
-    TextEditingController telefonoController = TextEditingController(text: telefono);
-    TextEditingController cantidadController = TextEditingController(text: cantidad.toString());
-    TextEditingController adultosController = TextEditingController(text: adultos.toString());
-    TextEditingController ninosController = TextEditingController(text: ninos.toString());
-    TextEditingController checkInController = TextEditingController(text: checkIn);
-    TextEditingController checkOutController = TextEditingController(text: checkOut);
-    TextEditingController observacionesController = TextEditingController(text: observaciones);
-
-    Future<void> _selectDate(BuildContext context, TextEditingController controller) async {
-      DateTime? picked = await showDatePicker(
-        context: context,
-        initialDate: DateTime.now(),
-        firstDate: DateTime(2000),
-        lastDate: DateTime(2101),
-      );
-      if (picked != null) {
-        setState(() {
-          controller.text = DateFormat('dd/MM/yyyy').format(picked);
-        });
-      }
+  void _loadReservas() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+    try {
+      List<Map<String, dynamic>> loadedReservas = await _reservasRepository.getReservas();
+      setState(() {
+        reservas = loadedReservas;
+        filteredReservas = reservas;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = "Error al cargar las reservas: $e";
+      });
     }
+  }
 
-    showDialog(
+  void _filterReservas() {
+    setState(() {
+      String query = filterController.text.toLowerCase();
+      filteredReservas = reservas.where((reserva) {
+        final nombre = reserva['nombre']?.toLowerCase() ?? '';
+        final habitacion = reserva['habitacion']?.toLowerCase() ?? '';
+        return nombre.contains(query) || habitacion.contains(query);
+      }).toList();
+    });
+  }
+
+  void _mostrarDisponibilidad() async {
+    DateTime? fechaSeleccionada = await showDatePicker(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Detalles de la Reserva'),
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: habitacionController,
-                  decoration: const InputDecoration(labelText: 'Habitación:'),
-                ),
-                TextField(
-                  controller: nombreController,
-                  decoration: const InputDecoration(labelText: 'Nombre del cliente'),
-                ),
-                TextField(
-                  controller: telefonoController,
-                  decoration: const InputDecoration(labelText: 'Número de Teléfono'),
-                  keyboardType: TextInputType.phone,
-                ),
-                TextField(
-                  controller: cantidadController,
-                  decoration: const InputDecoration(labelText: 'Cantidad de huéspedes'),
-                  keyboardType: TextInputType.number,
-                ),
-                TextField(
-                  controller: adultosController,
-                  decoration: const InputDecoration(labelText: 'Cantidad de Adultos'),
-                  keyboardType: TextInputType.number,
-                ),
-                TextField(
-                  controller: ninosController,
-                  decoration: const InputDecoration(labelText: 'Cantidad de Niños'),
-                  keyboardType: TextInputType.number,
-                ),
-                TextField(
-                  controller: checkInController,
-                  readOnly: true,
-                  decoration: const InputDecoration(labelText: 'Check-in'),
-                  onTap: () => _selectDate(context, checkInController),
-                ),
-                TextField(
-                  controller: checkOutController,
-                  readOnly: true,
-                  decoration: const InputDecoration(labelText: 'Check-out'),
-                  onTap: () => _selectDate(context, checkOutController),
-                ),
-                TextField(
-                  controller: observacionesController,
-                  decoration: const InputDecoration(labelText: 'Observaciones'),
-                  keyboardType: TextInputType.multiline,
-                  maxLines: null,
-                ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancelar'),
-            ),
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  reservas[index] = {
-                    'habitacion': habitacionController.text,
-                    'nombre': nombreController.text,
-                    'cantidad': int.tryParse(cantidadController.text) ?? 1,
-                    'telefono': telefonoController.text,
-                    'adultos': int.tryParse(adultosController.text) ?? 0,
-                    'ninos': int.tryParse(ninosController.text) ?? 0,
-                    'checkIn': checkInController.text,
-                    'checkOut': checkOutController.text,
-                    'observaciones': observacionesController.text,
-                  };
-                });
-                Navigator.pop(context);
-              },
-              child: const Text('Guardar'),
-            ),
-          ],
-        );
-      },
+      initialDate: DateTime.now(),
+      firstDate: DateTime.now(),
+      lastDate: DateTime(2101),
+      locale: const Locale('es', 'ES'), // Localización en español
     );
+
+    if (fechaSeleccionada != null) {
+      ReservasDisponibilidad disponibilidad = ReservasDisponibilidad(reservas: reservas);
+      disponibilidad.mostrarHabitacionesDisponibles(context, fechaSeleccionada);
+    }
   }
 
   void _showAddReservaDialog() {
-    TextEditingController habitacionController = TextEditingController(text: "Habitación: ");
-    TextEditingController nombreController = TextEditingController();
-    TextEditingController telefonoController = TextEditingController();
-    TextEditingController cantidadController = TextEditingController();
-    TextEditingController adultosController = TextEditingController();
-    TextEditingController ninosController = TextEditingController();
-    TextEditingController checkInController = TextEditingController();
-    TextEditingController checkOutController = TextEditingController();
-    TextEditingController observacionesController = TextEditingController();
+    ReservasAddEdit reservasAddEdit = ReservasAddEdit(
+      formKey: _formKey,
+      habitacionController: TextEditingController(text: "Habitación: "),
+      nombreController: TextEditingController(),
+      telefonoController: TextEditingController(),
+      cantidadController: TextEditingController(),
+      adultosController: TextEditingController(),
+      ninosController: TextEditingController(),
+      checkInController: TextEditingController(),
+      checkOutController: TextEditingController(),
+      observacionesController: TextEditingController(),
+      onSave: (newReserva) async {
+        try {
+          await _reservasRepository.addReserva(newReserva);
+          _loadReservas();
+        } catch (e) {
+          setState(() {
+            _errorMessage = "Error al agregar la reserva: $e";
+          });
+        }
+      },
+    );
 
-    Future<void> _selectDate(BuildContext context, TextEditingController controller) async {
-      DateTime? picked = await showDatePicker(
-        context: context,
-        initialDate: DateTime.now(),
-        firstDate: DateTime(2000),
-        lastDate: DateTime(2101),
+    reservasAddEdit.showAddEditDialog(context, isEditing: false);
+  }
+
+  void _showEditReservaDialog(int index, Map<String, dynamic> reserva) {
+    ReservasAddEdit reservasAddEdit = ReservasAddEdit(
+      formKey: _formKey,
+      habitacionController: TextEditingController(text: reserva['habitacion'] ?? ''),
+      nombreController: TextEditingController(text: reserva['nombre'] ?? ''),
+      telefonoController: TextEditingController(text: reserva['telefono'] ?? ''),
+      cantidadController: TextEditingController(text: reserva['cantidad']?.toString() ?? ''),
+      adultosController: TextEditingController(text: reserva['adultos']?.toString() ?? ''),
+      ninosController: TextEditingController(text: reserva['ninos']?.toString() ?? ''),
+      checkInController: TextEditingController(text: reserva['checkIn'] ?? ''),
+      checkOutController: TextEditingController(text: reserva['checkOut'] ?? ''),
+      observacionesController: TextEditingController(text: reserva['observaciones'] ?? ''),
+      onSave: (updatedReserva) async {
+        try {
+          await _reservasRepository.updateReserva(reserva['id'], updatedReserva);
+          _loadReservas();
+        } catch (e) {
+          setState(() {
+            _errorMessage = "Error al actualizar la reserva: $e";
+          });
+        }
+      },
+    );
+
+    reservasAddEdit.showAddEditDialog(context, isEditing: true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Reservas Alpina'),
+        ),
+        body: const Center(child: CircularProgressIndicator()),
       );
-      if (picked != null) {
-        setState(() {
-          controller.text = DateFormat('dd/MM/yyyy').format(picked);
-        });
+    }
+
+    if (_errorMessage != null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Reservas Alpina'),
+        ),
+        body: Center(
+          child: Text(
+            _errorMessage!,
+            style: const TextStyle(fontSize: 18, color: Colors.red),
+            textAlign: TextAlign.center,
+          ),
+        ),
+      );
+    }
+
+    if (filteredReservas.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Reservas Alpina'),
+        ),
+        body: const Center(
+          child: Text(
+            'No hay reservas disponibles.',
+            style: TextStyle(fontSize: 18),
+          ),
+        ),
+      );
+    }
+
+    Map<String, List<Map<String, dynamic>>> reservasPorFecha = {};
+    for (var reserva in filteredReservas) {
+      String? fecha = reserva['checkIn'];
+
+      if (fecha != null && fecha.isNotEmpty) {
+        try {
+          DateTime parsedFecha = DateFormat('dd/MM/yyyy').parse(fecha);
+
+          if (reservasPorFecha[fecha] == null) {
+            reservasPorFecha[fecha] = [];
+          }
+          reservasPorFecha[fecha]!.add(reserva);
+        } catch (e) {
+          print("Error al parsear la fecha: $e");
+        }
       }
     }
 
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Agregar Nueva Reserva'),
-          content: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                TextField(
-                  controller: habitacionController,
-                  decoration: const InputDecoration(labelText: 'Habitación:'),
-                  onChanged: (value) {
-                    if (!value.startsWith("Habitación: ")) {
-                      habitacionController.text = "Habitación: ";
-                      habitacionController.selection = TextSelection.fromPosition(
-                        TextPosition(offset: habitacionController.text.length),
-                      );
-                    }
-                  },
-                ),
-                TextField(
-                  controller: nombreController,
-                  decoration: const InputDecoration(labelText: 'Nombre del cliente'),
-                ),
-                TextField(
-                  controller: telefonoController,
-                  decoration: const InputDecoration(labelText: 'Número de Teléfono'),
-                  keyboardType: TextInputType.phone,
-                ),
-                TextField(
-                  controller: cantidadController,
-                  decoration: const InputDecoration(labelText: 'Cantidad de huéspedes'),
-                  keyboardType: TextInputType.number,
-                ),
-                TextField(
-                  controller: adultosController,
-                  decoration: const InputDecoration(labelText: 'Cantidad de Adultos'),
-                  keyboardType: TextInputType.number,
-                ),
-                TextField(
-                  controller: ninosController,
-                  decoration: const InputDecoration(labelText: 'Cantidad de Niños'),
-                  keyboardType: TextInputType.number,
-                ),
-                TextField(
-                  controller: checkInController,
-                  readOnly: true,
-                  decoration: const InputDecoration(labelText: 'Check-in'),
-                  onTap: () => _selectDate(context, checkInController),
-                ),
-                TextField(
-                  controller: checkOutController,
-                  readOnly: true,
-                  decoration: const InputDecoration(labelText: 'Check-out'),
-                  onTap: () => _selectDate(context, checkOutController),
-                ),
-                TextField(
-                  controller: observacionesController,
-                  decoration: const InputDecoration(labelText: 'Observaciones'),
-                  keyboardType: TextInputType.multiline,
-                  maxLines: null,
-                ),
-              ],
+    return GestureDetector(
+      onTap: () {
+        FocusScope.of(context).unfocus(); // Quita el foco de cualquier campo activo al hacer clic fuera
+      },
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('Reservas Alpina'),
+        ),
+        body: Column(
+          children: [
+            ReservasFilter(
+              controller: filterController,
+              onFilterChanged: (query) => _filterReservas(),
             ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancelar'),
-            ),
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  reservas.add({
-                    'habitacion': habitacionController.text,
-                    'nombre': nombreController.text,
-                    'cantidad': int.tryParse(cantidadController.text) ?? 1,
-                    'telefono': telefonoController.text,
-                    'adultos': int.tryParse(adultosController.text) ?? 0,
-                    'ninos': int.tryParse(ninosController.text) ?? 0,
-                    'checkIn': checkInController.text,
-                    'checkOut': checkOutController.text,
-                    'observaciones': observacionesController.text,
-                  });
-                });
-                Navigator.pop(context);
-              },
-              child: const Text('Agregar'),
+            Expanded(
+              child: ListView(
+                children: reservasPorFecha.entries.map((entry) {
+                  String fecha = entry.key;
+                  List<Map<String, dynamic>> reservasDelDia = entry.value;
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 8.0),
+                        child: Text(
+                          DateFormat('dd MMMM yyyy', 'es').format(DateFormat('dd/MM/yyyy').parse(fecha)),
+                          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green),
+                        ),
+                      ),
+                      ...reservasDelDia.map((reserva) {
+                        int index = reservas.indexOf(reserva);
+                        return buildDismissibleReserva(
+                          context: context,
+                          index: index,
+                          reserva: reserva,
+                          onDismissed: () async {
+                            try {
+                              await _reservasRepository.deleteReserva(reserva['id']);
+                              _loadReservas();
+                            } catch (e) {
+                              setState(() {
+                                _errorMessage = "Error al eliminar la reserva: $e";
+                              });
+                            }
+                          },
+                          onCardTap: () {
+                            _showEditReservaDialog(index, reserva);
+                          },
+                        );
+                      }),
+                    ],
+                  );
+                }).toList(),
+              ),
             ),
           ],
-        );
-      },
+        ),
+        floatingActionButton: Stack(
+          children: [
+            // Botón para agregar una nueva reserva
+            Positioned(
+              bottom: 16.0,
+              right: 16.0,
+              child: FloatingActionButton(
+                onPressed: _showAddReservaDialog,
+                backgroundColor: Colors.green,
+                tooltip: 'Agregar reserva',
+                child: const Icon(Icons.add),
+              ),
+            ),
+            // Botón para ver disponibilidad
+            Positioned(
+              bottom: 80.0, // Ajuste para mostrarlo encima del botón de agregar
+              right: 16.0,
+              child: FloatingActionButton(
+                onPressed: _mostrarDisponibilidad,
+                backgroundColor: Colors.green[700],
+                tooltip: 'Ver disponibilidad',
+                child: const Icon(Icons.calendar_today),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
+
