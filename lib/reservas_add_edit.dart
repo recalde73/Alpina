@@ -3,6 +3,10 @@ import 'package:intl/intl.dart';
 
 class ReservasAddEdit {
   final GlobalKey<FormState> formKey;
+  final bool lateCheckout;
+  final double montoTotal; // Nuevo campo
+  final double montoSenado; // Nuevo campo
+  final double saldo; // Nuevo campo
   final TextEditingController habitacionController;
   final TextEditingController nombreController;
   final TextEditingController telefonoController;
@@ -16,6 +20,10 @@ class ReservasAddEdit {
 
   ReservasAddEdit({
     required this.formKey,
+    required this.lateCheckout,
+    required this.montoTotal, // Inicializar nuevo campo
+    required this.montoSenado, // Inicializar nuevo campo
+    required this.saldo,
     required this.habitacionController,
     required this.nombreController,
     required this.telefonoController,
@@ -173,6 +181,10 @@ class ReservasAddEdit {
                     'checkIn': checkInController.text,
                     'checkOut': checkOutController.text,
                     'observaciones': observacionesController.text,
+                    'montoTotal': montoTotal, // Agregar monto total
+                    'montoSenado': montoSenado, // Agregar monto señado
+                    'saldo': saldo, // Agregar saldo
+                    'lateCheckout': lateCheckout, // Agregar lateCheckout
                   });
                   Navigator.pop(context);
                 }
