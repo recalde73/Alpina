@@ -4,6 +4,9 @@ import 'reservas_disponibilidad.dart';
 import 'reservas_add_edit.dart';
 import 'reservas_repository.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'habitaciones_disponibilidad.dart';
+import 'late_checkout.dart';
+import 'tarifas_manager.dart';
 
 class ReservasScreen extends StatefulWidget {
   const ReservasScreen({super.key});
@@ -14,6 +17,7 @@ class ReservasScreen extends StatefulWidget {
 
 class _ReservasScreenState extends State<ReservasScreen> {
   final ReservasRepository _reservasRepository = ReservasRepository();
+  final HabitacionesRepository habitacionesRepository = HabitacionesRepository();
   List<Map<String, dynamic>> reservas = [];
   List<Map<String, dynamic>> filteredReservas = [];
   List<Map<String, dynamic>> reservasPasadas = [];
@@ -113,7 +117,32 @@ class _ReservasScreenState extends State<ReservasScreen> {
       checkInController: TextEditingController(),
       checkOutController: TextEditingController(),
       observacionesController: TextEditingController(),
+      lateCheckout: false, // Nueva adición
+      montoTotal: 0.0, // Agregado
+      montoSenado: 0.0,
+      saldo: 0.0,
       onSave: (newReserva) async {
+        newReserva['telefono'] = _formatPhoneNumber(newReserva['telefono']);
+
+        // Crear instancia de TarifasManager
+        TarifasManager tarifasManager = TarifasManager();
+
+        // Calcular monto total usando calcularMontoTotal
+        double montoTotal = tarifasManager.calcularMontoTotal(
+          tipoHabitacion: 'Individual', // Puedes reemplazar esto por la habitación seleccionada por el usuario
+          cantidadAdultos: int.parse(newReserva['adultos'] ?? '0'),
+          cantidadNinos: int.parse(newReserva['ninos'] ?? '0'),
+          checkIn: DateFormat('dd/MM/yyyy').parse(newReserva['checkIn']),
+          checkOut: DateFormat('dd/MM/yyyy').parse(newReserva['checkOut']),
+          lateCheckout: newReserva['lateCheckout'] == true,
+        );
+
+        newReserva['montoTotal'] = montoTotal;
+
+        // Calcular saldo
+        double montoSenado = double.tryParse(newReserva['montoSenado']) ?? 0.0;
+        newReserva['saldo'] = montoTotal - montoSenado;
+
         try {
           await _reservasRepository.addReserva(newReserva);
           _loadReservas();
@@ -133,14 +162,39 @@ class _ReservasScreenState extends State<ReservasScreen> {
       formKey: _formKey,
       habitacionController: TextEditingController(text: reserva['habitacion'] ?? ''),
       nombreController: TextEditingController(text: reserva['nombre'] ?? ''),
-      telefonoController: TextEditingController(text: reserva['telefono'] ?? ''),
+      telefonoController: TextEditingController(text: _formatPhoneNumber(reserva['telefono'] ?? '')),
       cantidadController: TextEditingController(text: reserva['cantidad']?.toString() ?? ''),
       adultosController: TextEditingController(text: reserva['adultos']?.toString() ?? ''),
       ninosController: TextEditingController(text: reserva['ninos']?.toString() ?? ''),
       checkInController: TextEditingController(text: reserva['checkIn'] ?? ''),
       checkOutController: TextEditingController(text: reserva['checkOut'] ?? ''),
       observacionesController: TextEditingController(text: reserva['observaciones'] ?? ''),
+      lateCheckout: reserva['lateCheckout'] ?? false, // Nueva adición
+      montoTotal: reserva['montoTotal'] ?? 0.0, // Agregado anteriormente
+      montoSenado: reserva['montoSenado'] ?? 0.0, // Agregado ahora
+      saldo: reserva['saldo'] ?? 0.0,
       onSave: (updatedReserva) async {
+        updatedReserva['telefono'] = _formatPhoneNumber(updatedReserva['telefono']);
+
+        // Crear instancia de TarifasManager
+        TarifasManager tarifasManager = TarifasManager();
+
+        // Calcular monto total usando calcularMontoTotal
+        double montoTotal = tarifasManager.calcularMontoTotal(
+          tipoHabitacion: 'Individual', // Puedes reemplazar esto por la habitación seleccionada por el usuario
+          cantidadAdultos: int.parse(updatedReserva['adultos'] ?? '0'),
+          cantidadNinos: int.parse(updatedReserva['ninos'] ?? '0'),
+          checkIn: DateFormat('dd/MM/yyyy').parse(updatedReserva['checkIn']),
+          checkOut: DateFormat('dd/MM/yyyy').parse(updatedReserva['checkOut']),
+          lateCheckout: updatedReserva['lateCheckout'] == true,
+        );
+
+        updatedReserva['montoTotal'] = montoTotal;
+
+        // Calcular saldo
+        double montoSenado = double.tryParse(updatedReserva['montoSenado']) ?? 0.0;
+        updatedReserva['saldo'] = montoTotal - montoSenado;
+
         try {
           await _reservasRepository.updateReserva(reserva['id'], updatedReserva);
           _loadReservas();
@@ -156,12 +210,25 @@ class _ReservasScreenState extends State<ReservasScreen> {
   }
 
   Future<void> _callPhoneNumber(String phoneNumber) async {
-    final Uri url = Uri(scheme: 'tel', path: phoneNumber);
+    final Uri url = Uri(scheme: 'tel', path: _formatPhoneNumber(phoneNumber));
     if (await canLaunchUrl(url)) {
       await launchUrl(url);
     } else {
       throw 'No se pudo abrir $url';
     }
+  }
+
+  String _formatPhoneNumber(String phoneNumber) {
+    if (phoneNumber.startsWith('0')) {
+      return '+595' + phoneNumber.substring(1);
+    }
+    return phoneNumber;
+  }
+
+  int _calcularDias(String checkIn, String checkOut) {
+    DateTime checkInDate = DateFormat('dd/MM/yyyy').parse(checkIn);
+    DateTime checkOutDate = DateFormat('dd/MM/yyyy').parse(checkOut);
+    return checkOutDate.difference(checkInDate).inDays;
   }
 
   @override
@@ -338,27 +405,75 @@ class _ReservasScreenState extends State<ReservasScreen> {
                     ),
                     ...reservasDelDia.map((reserva) {
                       int index = reservas.indexOf(reserva);
-                      return Card(
-                        margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                        child: ListTile(
-                          title: Text('Habitación: ${reserva['habitacion']} - ${reserva['nombre']}'),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Teléfono: ${reserva['telefono']}'),
-                              Text('Adultos: ${reserva['adultos']}, Niños: ${reserva['ninos']}'),
-                              Text('Check-in: ${reserva['checkIn']}'),
-                              Text('Check-out: ${reserva['checkOut']}'),
-                              Text('Observaciones: ${reserva['observaciones']}'),
-                            ],
+                      return Dismissible(
+                        key: Key(reserva['id'].toString()),
+                        direction: DismissDirection.startToEnd,
+                        confirmDismiss: (direction) async {
+                          return await showDialog(
+                            context: context,
+                            builder: (BuildContext context) {
+                              return AlertDialog(
+                                title: const Text("Confirmar eliminación"),
+                                content: const Text("¿Estás seguro de que deseas eliminar esta reserva?"),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.of(context).pop(false),
+                                    child: const Text("Cancelar"),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => Navigator.of(context).pop(true),
+                                    child: const Text("Eliminar"),
+                                  ),
+                                ],
+                              );
+                            },
+                          );
+                        },
+                        onDismissed: (direction) async {
+                          try {
+                            await _reservasRepository.deleteReserva(reserva['id']);
+                            setState(() {
+                              reservas.removeAt(index);
+                              _filterReservas();
+                            });
+                          } catch (e) {
+                            setState(() {
+                              _errorMessage = "Error al eliminar la reserva: $e";
+                            });
+                          }
+                        },
+                        background: Container(
+                          color: Colors.red,
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          alignment: AlignmentDirectional.centerStart,
+                          child: const Icon(Icons.delete, color: Colors.white),
+                        ),
+                        child: Card(
+                          margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                          child: ListTile(
+                            title: Text('Habitación: ${reserva['habitacion']} - ${reserva['nombre']}'),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Teléfono: ${_formatPhoneNumber(reserva['telefono'])}'),
+                                Text('Adultos: ${reserva['adultos']}, Niños: ${reserva['ninos']}'),
+                                Text('Check-in: ${reserva['checkIn']}'),
+                                Text('Check-out: ${reserva['checkOut']}'),
+                                Text('Observaciones: ${reserva['observaciones']}'),
+                                Text('Monto Total: ${reserva['montoTotal'] ?? "No especificado"}'),
+                                Text('Monto Señado: ${reserva['montoSenado'] ?? "No especificado"}'),
+                                Text('Saldo: ${reserva['saldo'] ?? "No especificado"}'),
+                                Text('Late Checkout: ${reserva['lateCheckout'] ?? "No"}'),
+                              ],
+                            ),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.phone, color: Colors.green),
+                              onPressed: () => _callPhoneNumber(reserva['telefono']),
+                            ),
+                            onTap: () {
+                              _showEditReservaDialog(index, reserva);
+                            },
                           ),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.phone, color: Colors.green),
-                            onPressed: () => _callPhoneNumber(reserva['telefono']),
-                          ),
-                          onTap: () {
-                            _showEditReservaDialog(index, reserva);
-                          },
                         ),
                       );
                     }),
@@ -437,27 +552,75 @@ class _ReservasScreenState extends State<ReservasScreen> {
                     ),
                     ...reservasDelDia.map((reserva) {
                       int index = reservas.indexOf(reserva);
-                      return Card(
-                        margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                        child: ListTile(
-                          title: Text('Habitación: ${reserva['habitacion']} - ${reserva['nombre']}'),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text('Teléfono: ${reserva['telefono']}'),
-                              Text('Adultos: ${reserva['adultos']}, Niños: ${reserva['ninos']}'),
-                              Text('Check-in: ${reserva['checkIn']}'),
-                              Text('Check-out: ${reserva['checkOut']}'),
-                              Text('Observaciones: ${reserva['observaciones']}'),
-                            ],
+                      return Dismissible(
+                        key: Key(reserva['id'].toString()),
+                        direction: DismissDirection.startToEnd,
+                        confirmDismiss: (direction) async {
+                          return await showDialog(
+                            context: context,
+                            builder: (BuildContext context) {
+                              return AlertDialog(
+                                title: const Text("Confirmar eliminación"),
+                                content: const Text("¿Estás seguro de que deseas eliminar esta reserva?"),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.of(context).pop(false),
+                                    child: const Text("Cancelar"),
+                                  ),
+                                  TextButton(
+                                    onPressed: () => Navigator.of(context).pop(true),
+                                    child: const Text("Eliminar"),
+                                  ),
+                                ],
+                              );
+                            },
+                          );
+                        },
+                        onDismissed: (direction) async {
+                          try {
+                            await _reservasRepository.deleteReserva(reserva['id']);
+                            setState(() {
+                              reservas.removeAt(index);
+                              _filterReservas();
+                            });
+                          } catch (e) {
+                            setState(() {
+                              _errorMessage = "Error al eliminar la reserva: $e";
+                            });
+                          }
+                        },
+                        background: Container(
+                          color: Colors.red,
+                          padding: const EdgeInsets.symmetric(horizontal: 20),
+                          alignment: AlignmentDirectional.centerStart,
+                          child: const Icon(Icons.delete, color: Colors.white),
+                        ),
+                        child: Card(
+                          margin: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                          child: ListTile(
+                            title: Text('Habitación: ${reserva['habitacion']} - ${reserva['nombre']}'),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text('Teléfono: ${_formatPhoneNumber(reserva['telefono'])}'),
+                                Text('Adultos: ${reserva['adultos']}, Niños: ${reserva['ninos']}'),
+                                Text('Check-in: ${reserva['checkIn']}'),
+                                Text('Check-out: ${reserva['checkOut']}'),
+                                Text('Observaciones: ${reserva['observaciones']}'),
+                                Text('Monto Total: ${reserva['montoTotal'] ?? "No especificado"}'),
+                                Text('Monto Señado: ${reserva['montoSenado'] ?? "No especificado"}'),
+                                Text('Saldo: ${reserva['saldo'] ?? "No especificado"}'),
+                                Text('Late Checkout: ${reserva['lateCheckout'] ?? "No"}'),
+                              ],
+                            ),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.phone, color: Colors.green),
+                              onPressed: () => _callPhoneNumber(reserva['telefono']),
+                            ),
+                            onTap: () {
+                              _showEditReservaDialog(index, reserva);
+                            },
                           ),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.phone, color: Colors.green),
-                            onPressed: () => _callPhoneNumber(reserva['telefono']),
-                          ),
-                          onTap: () {
-                            _showEditReservaDialog(index, reserva);
-                          },
                         ),
                       );
                     }),
