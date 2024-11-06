@@ -18,6 +18,10 @@ class ReservasRepository {
           'checkIn': data['checkIn'] ?? '',
           'checkOut': data['checkOut'] ?? '',
           'observaciones': data['observaciones'] ?? '',
+          'montoTotal': data['montoTotal'] ?? 0.0,
+          'montoSenado': data['montoSenado'] ?? 0.0,
+          'saldo': data['saldo'] ?? 0.0,
+          'lateCheckout': data['lateCheckout'] ?? false,
           'id': doc.id, // Incluye el ID del documento para futuras operaciones
         };
       }).toList();
@@ -30,8 +34,10 @@ class ReservasRepository {
   Future<void> addReserva(Map<String, dynamic> reserva) async {
     try {
       await _reservasCollection.add(reserva);
+      print("Reserva añadida exitosamente en la base de datos.");
     } catch (e) {
-      print("Error al agregar reserva: $e");
+      print("Error al agregar la reserva en la base de datos: $e");
+      rethrow;
     }
   }
 

@@ -88,6 +88,7 @@ class _TarifaCalculatorState extends State<TarifaCalculator> {
   void initState() {
     super.initState();
     _calcularMontoTotal();
+    montoSenadoController.addListener(_actualizarSaldo); // Añadido para actualizar el saldo automáticamente
   }
 
   void _calcularMontoTotal() {
@@ -101,8 +102,8 @@ class _TarifaCalculatorState extends State<TarifaCalculator> {
         checkOut: widget.checkOut,
         lateCheckout: widget.lateCheckout,
       );
-      montoSenado = 0.0; // Por defecto, el monto señado es 0
-      saldo = montoTotal; // Saldo inicial igual al monto total
+      montoSenado = double.tryParse(montoSenadoController.text) ?? 0.0; // Inicializar con el monto señado si ya existe
+      saldo = montoTotal - montoSenado; // Saldo inicial igual al monto total menos la seña
       widget.onMontoCalculado(montoTotal);
     });
   }
@@ -134,7 +135,7 @@ class _TarifaCalculatorState extends State<TarifaCalculator> {
             border: OutlineInputBorder(),
           ),
           onChanged: (value) {
-            _actualizarSaldo();
+            _actualizarSaldo(); // Actualiza el saldo automáticamente al cambiar el monto señado
           },
         ),
         const SizedBox(height: 10),
@@ -146,3 +147,4 @@ class _TarifaCalculatorState extends State<TarifaCalculator> {
     );
   }
 }
+

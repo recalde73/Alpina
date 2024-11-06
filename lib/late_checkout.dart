@@ -1,20 +1,20 @@
+// late_checkout.dart
+
 import 'package:flutter/material.dart';
 
 class LateCheckout {
-  bool lateCheckout; // true si el late checkout está habilitado, false en caso contrario
-  double tarifaLateCheckout; // Tarifa adicional para el late checkout
+  bool lateCheckout;
+  double tarifaLateCheckout;
 
   LateCheckout({
     this.lateCheckout = false,
-    this.tarifaLateCheckout = 20.0, // Tarifa por defecto, se puede ajustar
+    this.tarifaLateCheckout = 20.0,
   });
 
-  // Método para habilitar o deshabilitar late checkout
   void setLateCheckout(bool value) {
     lateCheckout = value;
   }
 
-  // Método para obtener el monto adicional del late checkout
   double calcularTarifaAdicional() {
     return lateCheckout ? tarifaLateCheckout : 0.0;
   }
@@ -22,7 +22,7 @@ class LateCheckout {
 
 // Widget para gestionar la selección del late checkout
 class LateCheckoutSelector extends StatefulWidget {
-  final Function(bool) onLateCheckoutChanged; // Callback para manejar el cambio en la selección
+  final Function(bool) onLateCheckoutChanged;
   final bool initialSelection;
 
   const LateCheckoutSelector({
@@ -32,10 +32,10 @@ class LateCheckoutSelector extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  _LateCheckoutSelectorState createState() => _LateCheckoutSelectorState();
+  _LateCheckoutSelectorState  createState() => _LateCheckoutSelectorState ();
 }
 
-class _LateCheckoutSelectorState extends State<LateCheckoutSelector> {
+class _LateCheckoutSelectorState  extends State<LateCheckoutSelector> {
   bool lateCheckoutSelected = false;
 
   @override
@@ -83,4 +83,5 @@ class _LateCheckoutSelectorState extends State<LateCheckoutSelector> {
     );
   }
 }
+
 

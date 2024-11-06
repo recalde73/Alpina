@@ -4,9 +4,9 @@ import 'package:intl/intl.dart';
 class ReservasAddEdit {
   final GlobalKey<FormState> formKey;
   final bool lateCheckout;
-  final double montoTotal; // Nuevo campo
-  final double montoSenado; // Nuevo campo
-  final double saldo; // Nuevo campo
+  double montoTotal; // Cambiar de final a double (variable mutable)
+  double montoSenado; // Cambiar de final a double (variable mutable)
+  double saldo; // Cambiar de final a double (variable mutable)
   final TextEditingController habitacionController;
   final TextEditingController nombreController;
   final TextEditingController telefonoController;
@@ -21,8 +21,8 @@ class ReservasAddEdit {
   ReservasAddEdit({
     required this.formKey,
     required this.lateCheckout,
-    required this.montoTotal, // Inicializar nuevo campo
-    required this.montoSenado, // Inicializar nuevo campo
+    required this.montoTotal,
+    required this.montoSenado,
     required this.saldo,
     required this.habitacionController,
     required this.nombreController,
@@ -159,6 +159,27 @@ class ReservasAddEdit {
                     keyboardType: TextInputType.multiline,
                     maxLines: null,
                   ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Monto Total: ₲${montoTotal.toStringAsFixed(2)}',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 10),
+                  TextFormField(
+                    initialValue: montoSenado.toString(),
+                    decoration: const InputDecoration(labelText: 'Monto Señado'),
+                    keyboardType: TextInputType.number,
+                    onChanged: (value) {
+                      double senado = double.tryParse(value) ?? 0.0;
+                      montoSenado = senado;
+                      saldo = montoTotal - montoSenado; // Actualizar saldo
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Saldo: ₲${saldo.toStringAsFixed(2)}',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
                 ],
               ),
             ),
@@ -181,10 +202,10 @@ class ReservasAddEdit {
                     'checkIn': checkInController.text,
                     'checkOut': checkOutController.text,
                     'observaciones': observacionesController.text,
-                    'montoTotal': montoTotal, // Agregar monto total
-                    'montoSenado': montoSenado, // Agregar monto señado
-                    'saldo': saldo, // Agregar saldo
-                    'lateCheckout': lateCheckout, // Agregar lateCheckout
+                    'montoTotal': montoTotal,
+                    'montoSenado': montoSenado,
+                    'saldo': saldo,
+                    'lateCheckout': lateCheckout,
                   });
                   Navigator.pop(context);
                 }
