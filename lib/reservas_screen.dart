@@ -1,28 +1,27 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'reservas_disponibilidad.dart';
-import 'reservas_add_edit.dart';
+import 'reservas_form_screen.dart'; // Importamos la nueva pantalla
 import 'reservas_repository.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'habitaciones_disponibilidad.dart';
-import 'late_checkout.dart';
 import 'tarifas_manager.dart';
 
 class ReservasScreen extends StatefulWidget {
-  const ReservasScreen({super.key});
+  const ReservasScreen({Key? key}) : super(key: key);
 
   @override
-  _ReservasScreenState createState() => _ReservasScreenState();
+  ReservasScreenState createState() => ReservasScreenState();
 }
 
-class _ReservasScreenState extends State<ReservasScreen> {
+class ReservasScreenState extends State<ReservasScreen> {
   final ReservasRepository _reservasRepository = ReservasRepository();
+
   final HabitacionesRepository habitacionesRepository = HabitacionesRepository();
   List<Map<String, dynamic>> reservas = [];
   List<Map<String, dynamic>> filteredReservas = [];
   List<Map<String, dynamic>> reservasPasadas = [];
   TextEditingController filterController = TextEditingController();
-  final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
   bool _isLoading = true;
   String? _errorMessage;
 
@@ -56,6 +55,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
   void _filterReservas() {
     setState(() {
       String query = filterController.text.toLowerCase();
+      reservasPasadas.clear(); // Asegurarse de limpiar la lista antes de llenarla nuevamente
       filteredReservas = reservas.where((reserva) {
         final nombre = reserva['nombre']?.toLowerCase() ?? '';
         final habitacion = reserva['habitacion']?.toLowerCase() ?? '';
@@ -105,108 +105,49 @@ class _ReservasScreenState extends State<ReservasScreen> {
     }
   }
 
-  void _showAddReservaDialog() {
-    ReservasAddEdit reservasAddEdit = ReservasAddEdit(
-      formKey: _formKey,
-      habitacionController: TextEditingController(text: "Habitación: "),
-      nombreController: TextEditingController(),
-      telefonoController: TextEditingController(),
-      cantidadController: TextEditingController(),
-      adultosController: TextEditingController(),
-      ninosController: TextEditingController(),
-      checkInController: TextEditingController(),
-      checkOutController: TextEditingController(),
-      observacionesController: TextEditingController(),
-      lateCheckout: false, // Nueva adición
-      montoTotal: 0.0, // Agregado
-      montoSenado: 0.0,
-      saldo: 0.0,
-      onSave: (newReserva) async {
-        newReserva['telefono'] = _formatPhoneNumber(newReserva['telefono']);
+  void _showAddReservaScreen() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ReservasFormScreen(
+          onSave: (newReserva) async {
+            newReserva['telefono'] = _formatPhoneNumber(newReserva['telefono']);
 
-        // Crear instancia de TarifasManager
-        TarifasManager tarifasManager = TarifasManager();
-
-        // Calcular monto total usando calcularMontoTotal
-        double montoTotal = tarifasManager.calcularMontoTotal(
-          tipoHabitacion: 'Individual', // Puedes reemplazar esto por la habitación seleccionada por el usuario
-          cantidadAdultos: int.parse(newReserva['adultos'] ?? '0'),
-          cantidadNinos: int.parse(newReserva['ninos'] ?? '0'),
-          checkIn: DateFormat('dd/MM/yyyy').parse(newReserva['checkIn']),
-          checkOut: DateFormat('dd/MM/yyyy').parse(newReserva['checkOut']),
-          lateCheckout: newReserva['lateCheckout'] == true,
-        );
-
-        newReserva['montoTotal'] = montoTotal;
-
-        // Calcular saldo
-        double montoSenado = double.tryParse(newReserva['montoSenado']) ?? 0.0;
-        newReserva['saldo'] = montoTotal - montoSenado;
-
-        try {
-          await _reservasRepository.addReserva(newReserva);
-          _loadReservas();
-        } catch (e) {
-          setState(() {
-            _errorMessage = "Error al agregar la reserva: $e";
-          });
-        }
-      },
+            try {
+              await _reservasRepository.addReserva(newReserva);
+              _loadReservas();
+            } catch (e) {
+              setState(() {
+                _errorMessage = "Error al agregar la reserva: $e";
+              });
+            }
+          },
+        ),
+      ),
     );
-
-    reservasAddEdit.showAddEditDialog(context, isEditing: false);
   }
 
-  void _showEditReservaDialog(int index, Map<String, dynamic> reserva) {
-    ReservasAddEdit reservasAddEdit = ReservasAddEdit(
-      formKey: _formKey,
-      habitacionController: TextEditingController(text: reserva['habitacion'] ?? ''),
-      nombreController: TextEditingController(text: reserva['nombre'] ?? ''),
-      telefonoController: TextEditingController(text: _formatPhoneNumber(reserva['telefono'] ?? '')),
-      cantidadController: TextEditingController(text: reserva['cantidad']?.toString() ?? ''),
-      adultosController: TextEditingController(text: reserva['adultos']?.toString() ?? ''),
-      ninosController: TextEditingController(text: reserva['ninos']?.toString() ?? ''),
-      checkInController: TextEditingController(text: reserva['checkIn'] ?? ''),
-      checkOutController: TextEditingController(text: reserva['checkOut'] ?? ''),
-      observacionesController: TextEditingController(text: reserva['observaciones'] ?? ''),
-      lateCheckout: reserva['lateCheckout'] ?? false, // Nueva adición
-      montoTotal: reserva['montoTotal'] ?? 0.0, // Agregado anteriormente
-      montoSenado: reserva['montoSenado'] ?? 0.0, // Agregado ahora
-      saldo: reserva['saldo'] ?? 0.0,
-      onSave: (updatedReserva) async {
-        updatedReserva['telefono'] = _formatPhoneNumber(updatedReserva['telefono']);
+  void _showEditReservaScreen(int index, Map<String, dynamic> reserva) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ReservasFormScreen(
+          reserva: reserva,
+          onSave: (updatedReserva) async {
+            updatedReserva['telefono'] = _formatPhoneNumber(updatedReserva['telefono']);
 
-        // Crear instancia de TarifasManager
-        TarifasManager tarifasManager = TarifasManager();
-
-        // Calcular monto total usando calcularMontoTotal
-        double montoTotal = tarifasManager.calcularMontoTotal(
-          tipoHabitacion: 'Individual', // Puedes reemplazar esto por la habitación seleccionada por el usuario
-          cantidadAdultos: int.parse(updatedReserva['adultos'] ?? '0'),
-          cantidadNinos: int.parse(updatedReserva['ninos'] ?? '0'),
-          checkIn: DateFormat('dd/MM/yyyy').parse(updatedReserva['checkIn']),
-          checkOut: DateFormat('dd/MM/yyyy').parse(updatedReserva['checkOut']),
-          lateCheckout: updatedReserva['lateCheckout'] == true,
-        );
-
-        updatedReserva['montoTotal'] = montoTotal;
-
-        // Calcular saldo
-        double montoSenado = double.tryParse(updatedReserva['montoSenado']) ?? 0.0;
-        updatedReserva['saldo'] = montoTotal - montoSenado;
-
-        try {
-          await _reservasRepository.updateReserva(reserva['id'], updatedReserva);
-          _loadReservas();
-        } catch (e) {
-          setState(() {
-            _errorMessage = "Error al actualizar la reserva: $e";
-          });
-        }
-      },
+            try {
+              await _reservasRepository.updateReserva(reserva['id'], updatedReserva);
+              _loadReservas();
+            } catch (e) {
+              setState(() {
+                _errorMessage = "Error al actualizar la reserva: $e";
+              });
+            }
+          },
+        ),
+      ),
     );
-
-    reservasAddEdit.showAddEditDialog(context, isEditing: true);
   }
 
   Future<void> _callPhoneNumber(String phoneNumber) async {
@@ -220,7 +161,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
 
   String _formatPhoneNumber(String phoneNumber) {
     if (phoneNumber.startsWith('0')) {
-      return '+595' + phoneNumber.substring(1);
+      return '+595${phoneNumber.substring(1)}';
     }
     return phoneNumber;
   }
@@ -274,7 +215,7 @@ class _ReservasScreenState extends State<ReservasScreen> {
               bottom: 16.0,
               right: 16.0,
               child: FloatingActionButton(
-                onPressed: _showAddReservaDialog,
+                onPressed: _showAddReservaScreen,
                 backgroundColor: Colors.green,
                 tooltip: 'Agregar reserva',
                 child: const Icon(Icons.add),
@@ -370,14 +311,10 @@ class _ReservasScreenState extends State<ReservasScreen> {
       String? fecha = reserva['checkIn'];
 
       if (fecha != null && fecha.isNotEmpty) {
-        try {
-          if (reservasPorFecha[fecha] == null) {
-            reservasPorFecha[fecha] = [];
-          }
-          reservasPorFecha[fecha]!.add(reserva);
-        } catch (e) {
-          print("Error al parsear la fecha: $e");
+        if (reservasPorFecha[fecha] == null) {
+          reservasPorFecha[fecha] = [];
         }
+        reservasPorFecha[fecha]!.add(reserva);
       }
     }
 
@@ -460,10 +397,10 @@ class _ReservasScreenState extends State<ReservasScreen> {
                                 Text('Check-in: ${reserva['checkIn']}'),
                                 Text('Check-out: ${reserva['checkOut']}'),
                                 Text('Observaciones: ${reserva['observaciones']}'),
-                                Text('Monto Total: ${reserva['montoTotal'] ?? "No especificado"}'),
-                                Text('Monto Señado: ${reserva['montoSenado'] ?? "No especificado"}'),
-                                Text('Saldo: ${reserva['saldo'] ?? "No especificado"}'),
-                                Text('Late Checkout: ${reserva['lateCheckout'] ?? "No"}'),
+                                Text('Monto Total: ${NumberFormat.currency(locale: "es_PY", symbol: "₲").format(reserva['montoTotal'] ?? 0)}'),
+                                Text('Monto Señado: ${NumberFormat.currency(locale: "es_PY", symbol: "₲").format(reserva['montoSenado'] ?? 0)}'),
+                                Text('Saldo: ${NumberFormat.currency(locale: "es_PY", symbol: "₲").format(reserva['saldo'] ?? 0)}'),
+                                Text('Late Checkout: ${reserva['lateCheckout'] == true ? "Sí" : "No"}'),
                               ],
                             ),
                             trailing: IconButton(
@@ -471,12 +408,12 @@ class _ReservasScreenState extends State<ReservasScreen> {
                               onPressed: () => _callPhoneNumber(reserva['telefono']),
                             ),
                             onTap: () {
-                              _showEditReservaDialog(index, reserva);
+                              _showEditReservaScreen(index, reserva);
                             },
                           ),
                         ),
                       );
-                    }),
+                    }).toList(),
                   ],
                 );
               }).toList(),
@@ -517,14 +454,10 @@ class _ReservasScreenState extends State<ReservasScreen> {
       String? fecha = reserva['checkIn'];
 
       if (fecha != null && fecha.isNotEmpty) {
-        try {
-          if (reservasPorFecha[fecha] == null) {
-            reservasPorFecha[fecha] = [];
-          }
-          reservasPorFecha[fecha]!.add(reserva);
-        } catch (e) {
-          print("Error al parsear la fecha: $e");
+        if (reservasPorFecha[fecha] == null) {
+          reservasPorFecha[fecha] = [];
         }
+        reservasPorFecha[fecha]!.add(reserva);
       }
     }
 
@@ -607,10 +540,10 @@ class _ReservasScreenState extends State<ReservasScreen> {
                                 Text('Check-in: ${reserva['checkIn']}'),
                                 Text('Check-out: ${reserva['checkOut']}'),
                                 Text('Observaciones: ${reserva['observaciones']}'),
-                                Text('Monto Total: ${reserva['montoTotal'] ?? "No especificado"}'),
-                                Text('Monto Señado: ${reserva['montoSenado'] ?? "No especificado"}'),
-                                Text('Saldo: ${reserva['saldo'] ?? "No especificado"}'),
-                                Text('Late Checkout: ${reserva['lateCheckout'] ?? "No"}'),
+                                Text('Monto Total: ${NumberFormat.currency(locale: "es_PY", symbol: "₲").format(reserva['montoTotal'] ?? 0)}'),
+                                Text('Monto Señado: ${NumberFormat.currency(locale: "es_PY", symbol: "₲").format(reserva['montoSenado'] ?? 0)}'),
+                                Text('Saldo: ${NumberFormat.currency(locale: "es_PY", symbol: "₲").format(reserva['saldo'] ?? 0)}'),
+                                Text('Late Checkout: ${reserva['lateCheckout'] == true ? "Sí" : "No"}'),
                               ],
                             ),
                             trailing: IconButton(
@@ -618,12 +551,12 @@ class _ReservasScreenState extends State<ReservasScreen> {
                               onPressed: () => _callPhoneNumber(reserva['telefono']),
                             ),
                             onTap: () {
-                              _showEditReservaDialog(index, reserva);
+                              _showEditReservaScreen(index, reserva);
                             },
                           ),
                         ),
                       );
-                    }),
+                    }).toList(),
                   ],
                 );
               }).toList(),
@@ -643,3 +576,4 @@ class _ReservasScreenState extends State<ReservasScreen> {
     );
   }
 }
+

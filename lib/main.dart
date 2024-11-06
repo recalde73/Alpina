@@ -7,10 +7,15 @@ import 'firebase_options.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform, // Usa las opciones generadas para Firebase
-  );
-  runApp(const AlpinaApp());
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+    runApp(const AlpinaApp());
+  } catch (e, stackTrace) {
+    print('Error durante la inicialización de Firebase: $e');
+    print('Stack trace: $stackTrace');
+  }
 }
 
 class AlpinaApp extends StatelessWidget {
