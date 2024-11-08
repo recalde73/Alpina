@@ -3,6 +3,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'reservas_screen.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'firebase_options.dart';
+///import 'initialize_habitaciones.dart';
 
 
 void main() async {
@@ -11,6 +12,7 @@ void main() async {
     await Firebase.initializeApp(
       options: DefaultFirebaseOptions.currentPlatform,
     );
+    ///await initializeHabitaciones(); // Eliminar despues de ejecutar por primera vez
     runApp(const AlpinaApp());
   } catch (e, stackTrace) {
     print('Error durante la inicialización de Firebase: $e');

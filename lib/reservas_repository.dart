@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 
 class ReservasRepository {
   final CollectionReference _reservasCollection = FirebaseFirestore.instance.collection('reservas');
@@ -56,7 +57,32 @@ class ReservasRepository {
       print("Error al eliminar reserva: $e");
     }
   }
+
+  // Mover el método dentro de la clase
+  Future<bool> isHabitacionDisponible(String habitacionId, DateTime checkIn, DateTime checkOut) async {
+    try {
+      QuerySnapshot snapshot = await _reservasCollection
+          .where('habitacion', isEqualTo: habitacionId) // Cambiado a 'habitacion'
+          .get();
+
+      for (var doc in snapshot.docs) {
+        var data = doc.data() as Map<String, dynamic>;
+        DateTime existingCheckIn = DateFormat('dd/MM/yyyy').parse(data['checkIn']);
+        DateTime existingCheckOut = DateFormat('dd/MM/yyyy').parse(data['checkOut']);
+
+        bool isOverlap = checkIn.isBefore(existingCheckOut) && checkOut.isAfter(existingCheckIn);
+        if (isOverlap) {
+          return false; // Hay conflicto de fechas
+        }
+      }
+      return true; // No hay conflicto
+    } catch (e) {
+      print("Error al verificar disponibilidad: $e");
+      return false;
+    }
+  }
 }
+
 
 
 

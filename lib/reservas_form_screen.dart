@@ -3,6 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'tarifas_manager.dart';
+import 'reservas_repository.dart';
+import 'tarifas_manager.dart';
 
 class ReservasFormScreen extends StatefulWidget {
   final Map<String, dynamic>? reserva;
@@ -15,11 +17,12 @@ class ReservasFormScreen extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  _ReservasScreenState  createState() => _ReservasScreenState ();
+  _ReservasFormScreenState createState() => _ReservasFormScreenState();
 }
 
-class _ReservasScreenState  extends State<ReservasFormScreen> {
+class _ReservasFormScreenState extends State<ReservasFormScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
+  final ReservasRepository _reservasRepository = ReservasRepository();
 
   // Controladores de texto
   late TextEditingController habitacionController;
@@ -31,11 +34,11 @@ class _ReservasScreenState  extends State<ReservasFormScreen> {
   late TextEditingController checkInController;
   late TextEditingController checkOutController;
   late TextEditingController observacionesController;
-  late TextEditingController montoSenadoController;
+  TextEditingController montoTotalController = TextEditingController();
+  TextEditingController montoSenadoController = TextEditingController();
 
   bool lateCheckout = false;
   double montoTotal = 0.0;
-  double montoSenado = 0.0;
   double saldo = 0.0;
 
   @override
@@ -51,12 +54,17 @@ class _ReservasScreenState  extends State<ReservasFormScreen> {
     checkInController = TextEditingController(text: widget.reserva?['checkIn'] ?? '');
     checkOutController = TextEditingController(text: widget.reserva?['checkOut'] ?? '');
     observacionesController = TextEditingController(text: widget.reserva?['observaciones'] ?? '');
-    montoSenadoController = TextEditingController(text: widget.reserva?['montoSenado']?.toString() ?? '');
+    montoSenadoController.text = widget.reserva?['montoSenado']?.toString() ?? '0.0';
+    montoTotalController.text = widget.reserva?['montoTotal']?.toString() ?? '0.0';
 
     lateCheckout = widget.reserva?['lateCheckout'] ?? false;
-    montoTotal = widget.reserva?['montoTotal'] ?? 0.0;
-    montoSenado = widget.reserva?['montoSenado'] ?? 0.0;
-    saldo = widget.reserva?['saldo'] ?? 0.0;
+
+    // Añadir listeners para actualizar la interfaz cuando cambien los valores
+    adultosController.addListener(() => setState(() {}));
+    ninosController.addListener(() => setState(() {}));
+    checkInController.addListener(() => setState(() {}));
+    checkOutController.addListener(() => setState(() {}));
+    montoSenadoController.addListener(() => setState(() {}));
   }
 
   @override
@@ -72,15 +80,23 @@ class _ReservasScreenState  extends State<ReservasFormScreen> {
     checkOutController.dispose();
     observacionesController.dispose();
     montoSenadoController.dispose();
+    montoTotalController.dispose();
     super.dispose();
   }
 
   Future<void> selectDate(BuildContext context, TextEditingController controller) async {
+    DateTime initialDate = DateTime.now();
+    if (controller.text.isNotEmpty) {
+      try {
+        initialDate = DateFormat('dd/MM/yyyy').parse(controller.text);
+      } catch (e) {
+        // Manejar error de parseo si es necesario
+      }
+    }
+
     DateTime? picked = await showDatePicker(
       context: context,
-      initialDate: controller.text.isNotEmpty
-          ? DateFormat('dd/MM/yyyy').parse(controller.text)
-          : DateTime.now(),
+      initialDate: initialDate,
       firstDate: DateTime(2000),
       lastDate: DateTime(2101),
       locale: const Locale('es', 'ES'), // Calendario en español
@@ -92,34 +108,42 @@ class _ReservasScreenState  extends State<ReservasFormScreen> {
     }
   }
 
-  void _calculateMontoTotal() {
-    // Crear instancia de TarifasManager
-    TarifasManager tarifasManager = TarifasManager();
-
-    // Calcular monto total usando calcularMontoTotal
-    double calculatedMontoTotal = tarifasManager.calcularMontoTotal(
-      tipoHabitacion: 'Individual', // Puedes reemplazar esto por la habitación seleccionada por el usuario
-      cantidadAdultos: int.tryParse(adultosController.text) ?? 0,
-      cantidadNinos: int.tryParse(ninosController.text) ?? 0,
-      checkIn: DateFormat('dd/MM/yyyy').parse(checkInController.text),
-      checkOut: DateFormat('dd/MM/yyyy').parse(checkOutController.text),
-      lateCheckout: lateCheckout,
-    );
-
-    setState(() {
-      montoTotal = calculatedMontoTotal;
-    });
-  }
-
-  void _saveForm() {
+  void _saveForm() async {
     if (_formKey.currentState!.validate()) {
-      // Calcular monto total y saldo antes de guardar
-      _calculateMontoTotal();
+      // Obtener datos para verificación
+      String habitacionId = habitacionController.text;
+      DateTime checkInDate = DateFormat('dd/MM/yyyy').parse(checkInController.text);
+      DateTime checkOutDate = DateFormat('dd/MM/yyyy').parse(checkOutController.text);
 
-      montoSenado = double.tryParse(montoSenadoController.text) ?? 0.0;
-      saldo = montoTotal - montoSenado;
+      // Verificar disponibilidad
+      bool disponible = await _reservasRepository.isHabitacionDisponible(habitacionId, checkInDate, checkOutDate);
 
-      // Construye el mapa de datos de la reserva
+      if (!disponible) {
+        // Mostrar mensaje de error y salir
+        showDialog(
+          context: context,
+          builder: (context) {
+            return AlertDialog(
+              title: const Text('Cabaña no disponible'),
+              content: const Text('La cabaña seleccionada no está disponible para las fechas elegidas.'),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Aceptar'),
+                ),
+              ],
+            );
+          },
+        );
+        return; // Salir del método sin guardar
+      }
+
+      // Obtener valores de monto total y saldo
+      double montoTotal = double.tryParse(montoTotalController.text) ?? 0.0;
+      double montoSenado = double.tryParse(montoSenadoController.text) ?? 0.0;
+      double saldo = montoTotal - montoSenado;
+
+      // Construir el mapa de datos de la reserva
       Map<String, dynamic> reservaData = {
         'habitacion': habitacionController.text,
         'nombre': nombreController.text,
@@ -148,8 +172,8 @@ class _ReservasScreenState  extends State<ReservasFormScreen> {
     return Theme(
       data: Theme.of(context).copyWith(
         colorScheme: Theme.of(context).colorScheme.copyWith(
-          primary: Colors.green,
-        ),
+              primary: Colors.green,
+            ),
         inputDecorationTheme: const InputDecorationTheme(
           focusedBorder: UnderlineInputBorder(
             borderSide: BorderSide(color: Colors.green),
@@ -176,7 +200,6 @@ class _ReservasScreenState  extends State<ReservasFormScreen> {
             return Colors.grey.shade400; // Color cuando el switch está desactivado
           }),
         ),
-
       ),
       child: Scaffold(
         appBar: AppBar(
@@ -189,7 +212,7 @@ class _ReservasScreenState  extends State<ReservasFormScreen> {
             key: _formKey,
             child: Column(
               children: [
-                // Aquí agregas los TextFormField y otros widgets del formulario
+                // Campos del formulario
                 TextFormField(
                   controller: habitacionController,
                   decoration: const InputDecoration(labelText: 'Habitación'),
@@ -282,13 +305,18 @@ class _ReservasScreenState  extends State<ReservasFormScreen> {
                     return null;
                   },
                 ),
-                SwitchListTile(
-                  title: const Text('Late Checkout'),
-                  value: lateCheckout,
-                  activeColor: Colors.green, // Color del switch cuando está activo
-                  onChanged: (bool value) {
+                DropdownButtonFormField<String>(
+                  value: lateCheckout ? 'Sí' : 'No',
+                  decoration: const InputDecoration(labelText: '¿Quiere salir después del mediodía?'),
+                  items: ['Sí', 'No'].map((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value),
+                    );
+                  }).toList(),
+                  onChanged: (String? newValue) {
                     setState(() {
-                      lateCheckout = value;
+                      lateCheckout = newValue == 'Sí';
                     });
                   },
                 ),
@@ -298,19 +326,28 @@ class _ReservasScreenState  extends State<ReservasFormScreen> {
                   keyboardType: TextInputType.multiline,
                   maxLines: null,
                 ),
-                TextFormField(
-                  controller: montoSenadoController,
-                  decoration: const InputDecoration(labelText: 'Monto Señado'),
-                  keyboardType: TextInputType.number,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return 'Por favor, ingrese el monto señado';
-                    } else if (double.tryParse(value) == null) {
-                      return 'Ingrese un número válido';
-                    }
-                    return null;
+                const SizedBox(height: 20),
+                // Integración del TarifaCalculator
+                TarifaCalculator(
+                  cantidadAdultos: int.tryParse(adultosController.text) ?? 0,
+                  cantidadNinos: int.tryParse(ninosController.text) ?? 0,
+                  checkIn: checkInController.text.isNotEmpty
+                      ? DateFormat('dd/MM/yyyy').parse(checkInController.text)
+                      : DateTime.now(),
+                  checkOut: checkOutController.text.isNotEmpty
+                      ? DateFormat('dd/MM/yyyy').parse(checkOutController.text)
+                      : DateTime.now(),
+                  lateCheckout: lateCheckout,
+                  montoTotalController: montoTotalController,
+                  montoSenadoController: montoSenadoController,
+                  onMontoCalculado: (double nuevoMontoTotal, double nuevoSaldo) {
+                    setState(() {
+                      montoTotal = nuevoMontoTotal;
+                      saldo = nuevoSaldo;
+                    });
                   },
                 ),
+
                 const SizedBox(height: 20),
                 ElevatedButton(
                   onPressed: _saveForm,
