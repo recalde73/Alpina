@@ -8,7 +8,7 @@ class LateCheckout {
 
   LateCheckout({
     this.lateCheckout = false,
-    this.tarifaLateCheckout = 20.0,
+    this.tarifaLateCheckout = 50000.0,
   });
 
   void setLateCheckout(bool value) {
