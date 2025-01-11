@@ -11,10 +11,10 @@ class ReservasScreen extends StatefulWidget {
   const ReservasScreen({Key? key}) : super(key: key);
 
   @override
-  ReservasScreenState createState() => ReservasScreenState();
+  _ReservasScreenState  createState() => _ReservasScreenState ();
 }
 
-class ReservasScreenState extends State<ReservasScreen> {
+class _ReservasScreenState  extends State<ReservasScreen> {
   final ReservasRepository _reservasRepository = ReservasRepository();
 
   final HabitacionesRepository habitacionesRepository = HabitacionesRepository();
@@ -91,8 +91,9 @@ class ReservasScreenState extends State<ReservasScreen> {
   }
 
   void _mostrarDisponibilidad() async {
+    BuildContext dialogContext = context; // Guardamos el contexto actual
     DateTime? fechaSeleccionada = await showDatePicker(
-      context: context,
+      context: dialogContext,
       initialDate: DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime(2101),
@@ -101,7 +102,7 @@ class ReservasScreenState extends State<ReservasScreen> {
 
     if (fechaSeleccionada != null) {
       ReservasDisponibilidad disponibilidad = ReservasDisponibilidad(reservas: reservas);
-      disponibilidad.mostrarHabitacionesDisponibles(context, fechaSeleccionada);
+      disponibilidad.mostrarHabitacionesDisponibles(dialogContext, fechaSeleccionada);
     }
   }
 
