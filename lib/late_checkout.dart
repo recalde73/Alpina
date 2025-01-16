@@ -26,10 +26,10 @@ class LateCheckoutSelector extends StatefulWidget {
   final bool initialSelection;
 
   const LateCheckoutSelector({
-    Key? key,
+    super.key,
     required this.onLateCheckoutChanged,
     this.initialSelection = false,
-  }) : super(key: key);
+  });
 
   @override
   _LateCheckoutSelectorState  createState() => _LateCheckoutSelectorState ();

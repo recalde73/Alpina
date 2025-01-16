@@ -8,7 +8,7 @@ import 'habitaciones_disponibilidad.dart';
 import 'tarifas_manager.dart';
 
 class ReservasScreen extends StatefulWidget {
-  const ReservasScreen({Key? key}) : super(key: key);
+  const ReservasScreen({super.key});
 
   @override
   _ReservasScreenState  createState() => _ReservasScreenState ();
@@ -414,7 +414,7 @@ class _ReservasScreenState  extends State<ReservasScreen> {
                           ),
                         ),
                       );
-                    }).toList(),
+                    }),
                   ],
                 );
               }).toList(),
@@ -557,7 +557,7 @@ class _ReservasScreenState  extends State<ReservasScreen> {
                           ),
                         ),
                       );
-                    }).toList(),
+                    }),
                   ],
                 );
               }).toList(),

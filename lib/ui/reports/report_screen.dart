@@ -6,7 +6,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:Alpina/reservas_repository.dart';
 
 class ReportScreen extends StatefulWidget {
-  const ReportScreen({Key? key}) : super(key: key);
+  const ReportScreen({super.key});
 
   @override
   State<ReportScreen> createState() => _ReportScreenState();

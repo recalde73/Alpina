@@ -59,7 +59,7 @@ class TarifaCalculator extends StatefulWidget {
   final Function(double montoTotal, double saldo) onMontoCalculado;
 
   const TarifaCalculator({
-    Key? key,
+    super.key,
     required this.cantidadAdultos,
     required this.cantidadNinos,
     required this.checkIn,
@@ -68,7 +68,7 @@ class TarifaCalculator extends StatefulWidget {
     required this.montoTotalController,
     required this.montoSenadoController,
     required this.onMontoCalculado,
-  }) : super(key: key);
+  });
 
   @override
   _TarifaCalculatorState createState() => _TarifaCalculatorState();

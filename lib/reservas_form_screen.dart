@@ -12,10 +12,10 @@ class ReservasFormScreen extends StatefulWidget {
   final Function(Map<String, dynamic>) onSave;
 
   const ReservasFormScreen({
-    Key? key,
+    super.key,
     this.reserva,
     required this.onSave,
-  }) : super(key: key);
+  });
 
   @override
   _ReservasFormScreenState createState() => _ReservasFormScreenState();
