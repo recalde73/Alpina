@@ -2,7 +2,7 @@ FROM ubuntu:20.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 
-# Instalar dependencias esenciales
+# Instalar paquetes necesarios
 RUN apt-get update && apt-get install -y \
     openjdk-11-jdk \
     wget \
@@ -16,33 +16,32 @@ ENV JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 ENV PATH="$JAVA_HOME/bin:$PATH"
 
 # Instalar Android SDK
-RUN mkdir /sdk
+RUN mkdir -p /sdk
 WORKDIR /sdk
-RUN wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O commandlinetools.zip \
-    && unzip commandlinetools.zip -d /sdk/cmdline-tools \
-    && rm commandlinetools.zip
 
-RUN mkdir -p /sdk/cmdline-tools/latest && \
-    unzip commandlinetools.zip -d /sdk/cmdline-tools/latest && \
-    mv /sdk/cmdline-tools/latest/cmdline-tools/* /sdk/cmdline-tools/latest/ && \
-    rm -rf /sdk/cmdline-tools/latest/cmdline-tools
-
-
-
+# Descargar y configurar Android Command Line Tools
+RUN wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip \
+    && unzip commandlinetools-linux-9477386_latest.zip \
+    && mkdir -p cmdline-tools/latest \
+    && mv cmdline-tools/* cmdline-tools/latest/ || true \
+    && rm -f commandlinetools-linux-9477386_latest.zip
 
 ENV ANDROID_HOME=/sdk
-ENV PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH"
+ENV PATH="${ANDROID_HOME}/cmdline-tools/latest/bin:${ANDROID_HOME}/platform-tools:${PATH}"
 
-# Aceptar todas las licencias del SDK
-# RUN yes | /sdk/cmdline-tools/latest/bin/sdkmanager --licenses
+# Aceptar licencias
+RUN yes | sdkmanager --licenses || true
 
-# Instalar el NDK requerido
-# RUN /sdk/cmdline-tools/latest/bin/sdkmanager "ndk;26.3.11579264"
+# Instalar paquetes SDK necesarios
+RUN sdkmanager "platform-tools" "platforms;android-30" "build-tools;30.0.3"
+
+# Instalar NDK
+RUN sdkmanager "ndk;26.3.11579264"
 
 # Instalar Gradle
-RUN wget https://services.gradle.org/distributions/gradle-7.6-bin.zip -O gradle.zip \
-    && unzip gradle.zip -d /opt/gradle \
-    && rm gradle.zip
+RUN wget https://services.gradle.org/distributions/gradle-7.6-bin.zip \
+    && unzip gradle-7.6-bin.zip -d /opt/gradle \
+    && rm gradle-7.6-bin.zip
 ENV PATH="/opt/gradle/gradle-7.6/bin:$PATH"
 
 # Instalar Flutter SDK
@@ -51,17 +50,17 @@ ENV FLUTTER_HOME=/flutter
 ENV PATH="$FLUTTER_HOME/bin:$PATH"
 ENV FLUTTER_SUPPRESS_ANALYTICS=true
 
-# Configurar Flutter y generar el archivo `engine.version`
+# Configurar Flutter
 RUN flutter doctor
 
-# Establecer el directorio de trabajo para el proyecto Android
+# Configurar directorio de trabajo
 WORKDIR /app
 
-# Copiar únicamente la carpeta 'android'
+# Copiar archivos del proyecto
 COPY ./android /app
 
-# Dar permisos de ejecución al archivo gradlew
+# Permisos gradlew
 RUN chmod +x /app/gradlew
 
-# Construir la aplicación
+# Comando por defecto
 CMD ["./gradlew", "assembleDebug"]
